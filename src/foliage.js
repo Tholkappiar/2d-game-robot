@@ -75,9 +75,9 @@ export const foliagePieces = [
   ...Object.values(sheets).map(sheet => sheet.piece), treePiece, ...new Set(craterProps.map(prop => prop.piece)),
 ];
 
-export function addFoliage(model, textures, kit = null) {
+export function addFoliage(model, textures, kitComing = true) {
   const terrain = model.getObjectByName('Terrain_Export');
-  if (!terrain) return { front: null, animate: () => {} };
+  if (!terrain) return { front: null, animate: () => {}, dress: () => {} };
   const craterWall = model.getObjectByName('CraterWall_Export');
   const craterFloor = model.getObjectByName('CraterFloor_Export');
   model.updateMatrixWorld(true);
@@ -140,7 +140,7 @@ export function addFoliage(model, textures, kit = null) {
 
   for (const band of bands) {
     // With 3D MegaKit plants in the scene, the painted cards only fill the gaps.
-    for (let i = 0; i < band.count * stretch * (kit ? 0.45 : 1); i++) {
+    for (let i = 0; i < band.count * stretch * (kitComing ? 0.45 : 1); i++) {
       const x = THREE.MathUtils.lerp(-half + 0.2, half - 0.2, random());
       const z = THREE.MathUtils.lerp(band.z[0], band.z[1], random());
       if (band.clearWreck && Math.abs(x - wreck.x) < 5) continue; // no bushes in the sightline
@@ -175,7 +175,6 @@ export function addFoliage(model, textures, kit = null) {
     push(name, 'ground', { x, y: top + 0.04, z: face.z + 0.03, height: THREE.MathUtils.lerp(min, max, random()), turn: 0, flip: random() < 0.5 });
   }
 
-  if (kit) dressWithKit(model, kit, { terrain, craterWall, craterFloor, groundAt, toLocal, random, half, wreck, crater, time });
 
   const materials = {};
   const matrix = new THREE.Matrix4();
@@ -204,7 +203,12 @@ export function addFoliage(model, textures, kit = null) {
     (front ? frontGroup : model).add(mesh);
   }
 
-  return { front: frontGroup, animate: animationTime => { time.value = animationTime ?? 0; } };
+  return {
+    front: frontGroup,
+    animate: animationTime => { time.value = animationTime ?? 0; },
+    // MegaKit arrives after the first frame; its own seed keeps placement the same every load.
+    dress: kit => dressWithKit(model, kit, { terrain, craterWall, craterFloor, groundAt, toLocal, random: seeded(29), half, wreck, crater, time }),
+  };
 }
 
 // Painted tree-line cards standing on the crater rim; fog hazes them into the hills.

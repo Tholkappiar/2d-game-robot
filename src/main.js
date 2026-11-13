@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import './style.css';
 import { buildScene, makePlane, cameraDistance } from './scene-builder.js';
 import { loadLayouts } from './scene-layouts.js';
@@ -64,8 +65,9 @@ async function start() {
   for (const { piece } of layout.placements) names.add(piece);
   if (layout.model) for (const piece of foliagePieces) names.add(piece);
   const textures = Object.fromEntries(await Promise.all(Array.from(names, async name => {
-    const texture = await loader.loadAsync(`${import.meta.env.BASE_URL}assets/${name}.png`)
-      .catch(() => { throw new Error(`Could not load artwork "${name}.png".`); });
+    // WebP copies of every painting: same look, a fraction of the download.
+    const texture = await loader.loadAsync(`${import.meta.env.BASE_URL}assets/${name}.webp`)
+      .catch(() => { throw new Error(`Could not load artwork "${name}.webp".`); });
     texture.colorSpace = THREE.SRGBColorSpace;
     return [name, texture];
   })));
@@ -84,7 +86,8 @@ async function start() {
   let followSun = () => {};
   if (layout.model) {
     // Every file shares one transform: they were exported from the same Blender scene.
-    const gltfLoader = new GLTFLoader();
+    // The Blender exports are Draco-compressed; the decoder lives in public/draco.
+    const gltfLoader = new GLTFLoader().setDRACOLoader(new DRACOLoader().setDecoderPath(`${import.meta.env.BASE_URL}draco/`));
     model = new THREE.Group();
     for (const file of layout.model.files) {
       const gltf = await gltfLoader.loadAsync(`${import.meta.env.BASE_URL}assets/${file}`)
@@ -112,8 +115,15 @@ async function start() {
     scene.fog = new THREE.Fog('#9fb7c4', cameraDistance + 1, cameraDistance + 24);
   }
 
-  const kit = layout.model ? await loadKit(import.meta.env.BASE_URL) : null;
-  const activeLayout = buildScene(layout, textures, model, kit);
+  const activeLayout = buildScene(layout, textures, model);
+  // Show the scene right away; MegaKit trees, rocks and grass stream in a moment later.
+  if (layout.model) {
+    loadKit(import.meta.env.BASE_URL).then(kit => activeLayout.dress(kit)).catch(error => {
+      console.error(error);
+      status.textContent = error.message;
+      status.hidden = false;
+    });
+  }
   depot.add(activeLayout.root);
   const descent = layout.platforms?.find(platform => platform.endY < platform.y);
   const controls = 'A/D move · Space jump';

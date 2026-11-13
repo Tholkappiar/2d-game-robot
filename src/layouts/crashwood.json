@@ -1480,39 +1480,39 @@
     {
       "piece": "crash-foreground-v2",
       "layer": "crash-foreground",
-      "x": -10.088,
-      "width": 5.2,
-      "bottom": -1.15
+      "x": -14.55,
+      "width": 7.5,
+      "bottom": -3.0
     },
     {
       "piece": "crash-foreground-v2",
       "layer": "crash-foreground",
-      "x": -5.044,
-      "width": 5.2,
-      "bottom": -1.15,
+      "x": -7.275,
+      "width": 7.5,
+      "bottom": -3.0,
       "flip": true
     },
     {
       "piece": "crash-foreground-v2",
       "layer": "crash-foreground",
       "x": 0.0,
-      "width": 5.2,
-      "bottom": -1.15
+      "width": 7.5,
+      "bottom": -3.0
     },
     {
       "piece": "crash-foreground-v2",
       "layer": "crash-foreground",
-      "x": 5.044,
-      "width": 5.2,
-      "bottom": -1.15,
+      "x": 7.275,
+      "width": 7.5,
+      "bottom": -3.0,
       "flip": true
     },
     {
       "piece": "crash-foreground-v2",
       "layer": "crash-foreground",
-      "x": 10.088,
-      "width": 5.2,
-      "bottom": -1.15
+      "x": 14.55,
+      "width": 7.5,
+      "bottom": -3.0
     }
   ]
 }

@@ -4,8 +4,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 // Quaternius Stylized Nature MegaKit (CC0) — see public/assets/megakit/LICENSE.txt.
 // Models are in meters, like our Blender scene, so they drop straight into the model group.
 
-const trees = ['CommonTree_1', 'CommonTree_2', 'CommonTree_3', 'CommonTree_4', 'CommonTree_5',
-  'TwistedTree_1', 'TwistedTree_2', 'TwistedTree_3', 'TwistedTree_4', 'TwistedTree_5'];
+// (Twisted trees left out: heavy geometry and red leaves that don't fit the palette.)
+const trees = ['CommonTree_1', 'CommonTree_2', 'CommonTree_3', 'CommonTree_4', 'CommonTree_5'];
 const deadTrees = ['DeadTree_1', 'DeadTree_2', 'DeadTree_3', 'DeadTree_4', 'DeadTree_5'];
 const rocks = ['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'];
 const pebbles = ['Pebble_Round_1', 'Pebble_Round_2', 'Pebble_Round_3', 'Pebble_Round_4', 'Pebble_Round_5',
