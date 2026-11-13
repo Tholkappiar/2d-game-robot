@@ -583,39 +583,54 @@
   ],
   "placements": [
     {
-      "piece": "lana-video-sky",
+      "piece": "crash-sky-v2",
       "layer": "background",
-      "x": 0.0,
-      "width": 7.2,
-      "bottom": -1.38
+      "x": 0,
+      "width": 4.2,
+      "bottom": -1.3
     },
     {
-      "piece": "lana-video-basin",
+      "piece": "crash-far-hills",
+      "layer": "crash-hills",
+      "x": 0,
+      "width": 5.0,
+      "bottom": -1.2
+    },
+    {
+      "piece": "crash-basin-v2",
       "layer": "crash-basin",
       "x": 0.3,
-      "width": 7.85,
-      "bottom": -1.03
+      "width": 4.0,
+      "bottom": -1.1
     },
     {
-      "piece": "lana-video-woods",
+      "piece": "crash-woods-v2",
       "layer": "crash-forest",
-      "x": 0.0,
-      "width": 11.6,
-      "bottom": -1.4
+      "x": -2.6,
+      "width": 3.6,
+      "bottom": -0.9
     },
     {
-      "piece": "lana-video-foreground",
-      "layer": "crash-foreground",
-      "x": -0.58,
-      "width": 8.1,
-      "bottom": -1.31
+      "piece": "crash-woods-v2",
+      "layer": "crash-forest",
+      "x": 3.6,
+      "width": 3.6,
+      "bottom": -0.9,
+      "flip": true
     },
     {
-      "piece": "lana-video-foreground",
+      "piece": "crash-foreground-v2",
       "layer": "crash-foreground",
-      "x": 7.5,
-      "width": 8.1,
-      "bottom": -1.36,
+      "x": -1.9,
+      "width": 3.7,
+      "bottom": -1.25
+    },
+    {
+      "piece": "crash-foreground-v2",
+      "layer": "crash-foreground",
+      "x": 1.9,
+      "width": 3.7,
+      "bottom": -1.25,
       "flip": true
     }
   ],

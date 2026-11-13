@@ -49,7 +49,9 @@ export function buildScene(layout, textures, model = null) {
 
   for (const [index, placement] of layout.placements.entries()) {
     const { piece, layer, x = 0, width, bottom, spacing, variation = 0, span, surface, fadeIn, flip } = placement;
-    const { strip, opaque, trimBottom = 0, heightScale = 1, walkingLine, surfaceLine, softenCanopyEdges, featherBase } = pieces[piece];
+    const {
+      strip, opaque, trimBottom = 0, heightScale = 1, walkingLine, surfaceLine, softenCanopyEdges, featherBase, featherSides,
+    } = pieces[piece];
     const { speed, order } = layers[layer];
     const map = textures[piece];
     const height = width * (map.image.height - trimBottom) / map.image.width * heightScale;
@@ -92,6 +94,17 @@ export function buildScene(layout, textures, model = null) {
             diffuseColor.a *= mix(1.0, smoothstep(0.0, 0.045, side), smoothstep(0.2, 0.43, vMapUv.y));
           `);
         };
+      }
+      if (featherSides) {
+        // Fade both side edges so a non-tiling painting blends into the layers behind.
+        mesh.material.onBeforeCompile = shader => {
+          shader.uniforms.sideFade = { value: featherSides };
+          shader.fragmentShader = 'uniform float sideFade;\n' + shader.fragmentShader.replace('#include <map_fragment>', `
+            #include <map_fragment>
+            diffuseColor.a *= smoothstep(0.0, sideFade, min(vMapUv.x, 1.0 - vMapUv.x));
+          `);
+        };
+        mesh.material.customProgramCacheKey = () => 'feather-sides';
       }
       if (featherBase) {
         mesh.material.onBeforeCompile = shader => {
