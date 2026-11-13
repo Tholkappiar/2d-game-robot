@@ -1468,13 +1468,6 @@
       "bottom": -0.05
     },
     {
-      "piece": "crash-far-hills",
-      "layer": "crash-hills",
-      "x": 0,
-      "width": 5.0,
-      "bottom": -1.2
-    },
-    {
       "piece": "crash-foreground-v2",
       "layer": "crash-foreground",
       "x": -17.848,

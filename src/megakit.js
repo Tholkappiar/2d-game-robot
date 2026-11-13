@@ -83,7 +83,7 @@ function prepare(kit, renderOrder, time) {
 
 // Collect placements per model, then build one InstancedMesh per sub-mesh.
 // Only big things cast shadows; grass, flowers and pebbles would double the GPU work for little gain.
-const castsShadow = name => rocks.includes(name) || name.startsWith('Bush');
+const castsShadow = name => rocks.includes(name) || name.startsWith('Bush') || trees.includes(name);
 const chunkSize = 8; // meters: one instanced batch per model per 8 m of path
 
 // Collect placements per model and 8 m chunk, then build one InstancedMesh per sub-mesh per
@@ -116,7 +116,7 @@ function makeBatcher(kit, parent, renderOrder) {
   };
 }
 
-export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, groundAt, toLocal, random, half, wreck, crater, time }) {
+export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, outerLand, groundAt, toLocal, random, half, wreck, crater, time }) {
   const order = terrain.renderOrder;
   prepare(kit, order, time);
   const batch = makeBatcher(kit, model, order);
@@ -180,16 +180,34 @@ export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, gro
     const position = at(x + random() * 2, -(3.4 + random() * 3.0), craterFloor ?? terrain);
     if (position) addTree(pick(trees), position, 6 + random() * 3, null, craterFloor ?? terrain);
   }
+  // Individual trees on the left and right crater rims and the side hills beyond: real 3D
+  // trees at varied sizes (the haze gives them depth), instanced so dozens stay cheap.
+  // The saddle in the middle stays open so Saturn sits on a clear sky.
+  const farTrees = ['CommonTree_3', 'CommonTree_4', 'CommonTree_5'];
+  const plantFar = (name, x, z, height, target) => {
+    const ground = settle(x, z, 0.6, 0.6, target);
+    if (ground === null) return;
+    const scale = height / kit[name].size.y;
+    batch.add(name, new THREE.Vector3(x, ground - 0.2 * scale, z), scale, random() * Math.PI * 2);
+  };
   if (craterWall) {
-    // Low rim trees so the sky and the planet stay open above the crater.
-    for (let i = 0; i < 22; i++) {
-      const angle = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(-10, 190, (i + random() * 0.8) / 30));
-      if (Math.abs(THREE.MathUtils.radToDeg(angle) - 90) < 40) continue; // keep the saddle and Saturn clear
-      const reach = 5 + random() * 7;
+    for (let i = 0; i < 120; i++) {
+      const degrees = THREE.MathUtils.lerp(-40, 220, random());
+      if (Math.abs(degrees - 90) < 40) continue;
+      const angle = THREE.MathUtils.degToRad(degrees);
+      const reach = 3 + random() * 10;
       const x = crater.x + (crater.rx + reach) * Math.cos(angle);
       const z = -(crater.y + (crater.ry + reach) * Math.sin(angle));
-      const position = at(x, z, craterWall);
-      if (position) addTree(pick(trees), position, 4.5 + random() * 2.5, null, craterWall);
+      plantFar(pick(trees), x, z, 5 + random() * 4, craterWall);
+    }
+  }
+  if (outerLand) {
+    for (let i = 0; i < 220; i++) {
+      const x = (random() < 0.5 ? -1 : 1) * THREE.MathUtils.lerp(34, 110, random());
+      const z = -THREE.MathUtils.lerp(20, 105, random());
+      const ground = groundAt(x, z, outerLand);
+      if (ground === null || ground < 2.5) continue; // only on the raised side hills
+      plantFar(pick(farTrees), x, z, 6 + random() * 5, outerLand);
     }
   }
   // Burnt dead trees standing in the crater.

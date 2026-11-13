@@ -52,7 +52,6 @@ const bands = [
 // Crater floor plants and the dark band of plants right in front of the camera.
 const craterPick = ['tuft', 'grassLeafy', 'seedShort', 'fern', 'fernSmall', 'leaf', 'clover', 'mossA', 'mossB'];
 const frontPick = ['fernBig', 'grassTall', 'leafBig', 'bushFern', 'seedTall', 'bushFlower', 'fern'];
-const treePiece = 'crash-woods-v2';
 
 // The crater bowl's ellipse in Blender (x, y) — matches the Blender scene.
 const crater = { x: 0, y: 22, rx: 44, ry: 18 };
@@ -72,7 +71,7 @@ const craterProps = [
 ];
 
 export const foliagePieces = [
-  ...Object.values(sheets).map(sheet => sheet.piece), treePiece, ...new Set(craterProps.map(prop => prop.piece)),
+  ...Object.values(sheets).map(sheet => sheet.piece), ...new Set(craterProps.map(prop => prop.piece)),
 ];
 
 export function addFoliage(model, textures, kitComing = true) {
@@ -80,6 +79,7 @@ export function addFoliage(model, textures, kitComing = true) {
   if (!terrain) return { front: null, animate: () => {}, dress: () => {} };
   const craterWall = model.getObjectByName('CraterWall_Export');
   const craterFloor = model.getObjectByName('CraterFloor_Export');
+  const outerLand = model.getObjectByName('OuterLand_Export');
   model.updateMatrixWorld(true);
   // Half the path length in meters, read from the terrain so a longer Blender path just works.
   // The mesh runs past the walkable part (to hide its edges); dress only what the camera can reach.
@@ -142,7 +142,6 @@ export function addFoliage(model, textures, kitComing = true) {
       plant(craterPick[Math.floor(random() * craterPick.length)], x, z, 1.4, craterFloor);
     }
   }
-  if (craterWall) addRimTrees(model, craterWall, textures[treePiece], groundAt, random);
   if (craterFloor) addCraterProps(model, craterFloor, textures, groundAt);
 
   for (const band of bands) {
@@ -214,41 +213,10 @@ export function addFoliage(model, textures, kitComing = true) {
     front: frontGroup,
     animate: animationTime => { time.value = animationTime ?? 0; },
     // MegaKit arrives after the first frame; its own seed keeps placement the same every load.
-    dress: kit => dressWithKit(model, kit, { terrain, craterWall, craterFloor, groundAt, toLocal, random: seeded(29), half, wreck, crater, time }),
+    dress: kit => dressWithKit(model, kit, { terrain, craterWall, craterFloor, outerLand, groundAt, toLocal, random: seeded(29), half, wreck, crater, time }),
   };
 }
 
-// Painted tree-line cards standing on the crater rim; fog hazes them into the hills.
-function addRimTrees(model, craterWall, map, groundAt, random) {
-  const material = new THREE.MeshStandardMaterial({
-    map, color: '#d5ded4', transparent: true, depthWrite: false, side: THREE.DoubleSide, roughness: 1,
-  });
-  // Soft sides so overlapping cards read as one continuous tree line, never as rectangles.
-  material.onBeforeCompile = shader => {
-    shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
-      #include <map_fragment>
-      diffuseColor.a *= smoothstep(0.0, 0.25, min(vMapUv.x, 1.0 - vMapUv.x));
-    `);
-  };
-  material.customProgramCacheKey = () => 'rim-trees';
-  const aspect = map.image.width / map.image.height;
-  for (let i = 0; i < 26; i++) {
-    const angle = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(-8, 188, (i + random() * 0.7) / 26));
-    if (Math.abs(THREE.MathUtils.radToDeg(angle) - 90) < 38 && random() < 0.85) continue; // open sky over the low saddle
-    const x = crater.x + (crater.rx + 14) * Math.cos(angle);
-    const z = -(crater.y + (crater.ry + 14) * Math.sin(angle));
-    const y = groundAt(x, z, craterWall);
-    if (y === null) continue;
-    const height = THREE.MathUtils.lerp(7, 10, random());
-    const geometry = new THREE.PlaneGeometry(height * aspect, height);
-    geometry.translate(0, height / 2, 0);
-    const card = new THREE.Mesh(geometry, material);
-    card.position.set(x, y - 1.2, z);
-    if (random() < 0.5) card.scale.x = -1;
-    card.renderOrder = craterWall.renderOrder;
-    model.add(card);
-  }
-}
 
 // Find each plant's tight bounds inside its grid cell from the alpha channel.
 function cutSheets(textures) {
