@@ -48,33 +48,68 @@ const bands = [
   { z: [1.25, 1.75], count: 30, pick: ['grassTall', 'fernBig', 'leafBig', 'tuft', 'fern', 'seedShort'] },
 ];
 
-export const foliagePieces = Object.values(sheets).map(sheet => sheet.piece);
+// Crater floor plants and the dark band of plants right in front of the camera.
+const craterPick = ['tuft', 'grassLeafy', 'seedShort', 'fern', 'fernSmall', 'leaf', 'clover', 'mossA', 'mossB'];
+const frontPick = ['fernBig', 'grassTall', 'leafBig', 'bushFern', 'seedTall', 'bushFlower', 'fern'];
+const treePiece = 'crash-woods-v2';
+
+// The crater bowl's ellipse in Blender (x, y) — matches the Blender scene.
+const crater = { x: 0, y: 22, rx: 44, ry: 18 };
+
+export const foliagePieces = [...Object.values(sheets).map(sheet => sheet.piece), treePiece];
 
 export function addFoliage(model, textures) {
   const terrain = model.getObjectByName('Terrain_Export');
-  if (!terrain) return () => {};
+  if (!terrain) return { front: null, animate: () => {} };
+  const craterWall = model.getObjectByName('CraterWall_Export');
+  const craterFloor = model.getObjectByName('CraterFloor_Export');
   model.updateMatrixWorld(true);
   const toLocal = new THREE.Matrix4().copy(model.matrixWorld).invert();
   const raycaster = new THREE.Raycaster();
   const random = seeded(17);
   const time = { value: 0 };
   const sprites = cutSheets(textures);
-  const placed = Object.fromEntries(Object.keys(plants).map(name => [name, []]));
+  // Instanced groups keyed by plant name and look ('ground' = lit, 'front' = dark foreground).
+  const placed = {};
+  const push = (name, look, card) => (placed[`${name}|${look}`] ??= []).push(card);
 
-  function cast(from, direction) {
+  function cast(from, direction, target = terrain) {
     raycaster.set(from.clone().applyMatrix4(model.matrixWorld), direction.clone().transformDirection(model.matrixWorld));
-    const hit = raycaster.intersectObject(terrain, false)[0];
+    const hit = raycaster.intersectObject(target, false)[0];
     return hit && hit.point.applyMatrix4(toLocal);
   }
-  const groundAt = (x, z) => cast(new THREE.Vector3(x, 50, z), new THREE.Vector3(0, -1, 0))?.y ?? null;
+  const groundAt = (x, z, target = terrain) => cast(new THREE.Vector3(x, 80, z), new THREE.Vector3(0, -1, 0), target)?.y ?? null;
 
-  function plant(name, x, z, sizeScale = 1) {
-    const y = groundAt(x, z);
+  function plant(name, x, z, sizeScale = 1, target = terrain) {
+    const y = groundAt(x, z, target);
     if (y === null) return;
     const [min, max] = plants[name][2];
     const height = THREE.MathUtils.lerp(min, max, random()) * sizeScale;
-    placed[name].push({ x, y: y - 0.05 * height, z, height, turn: (random() - 0.5) * 0.5, flip: random() < 0.5 });
+    push(name, 'ground', { x, y: y - 0.05 * height, z, height, turn: (random() - 0.5) * 0.5, flip: random() < 0.5 });
   }
+
+  // Dark, out-of-the-light plants just in front of the camera. They live in their own
+  // group that rides with the camera height (see scene-builder), with bases below the
+  // frame, so they always fill the bottom edge and pass in front of the player.
+  const frontGroup = new THREE.Group();
+  for (let i = 0; i < 64; i++) {
+    const name = frontPick[Math.floor(random() * frontPick.length)];
+    const height = THREE.MathUtils.lerp(0.9, 2.2, random()) * (name.startsWith('bush') ? 0.85 : 1);
+    push(name, 'front', {
+      x: THREE.MathUtils.lerp(-16, 16, random()), y: -random() * 0.3, z: THREE.MathUtils.lerp(3.3, 5.2, random()),
+      height, turn: (random() - 0.5) * 0.4, flip: random() < 0.5,
+    });
+  }
+
+  if (craterFloor) {
+    for (let i = 0; i < 110; i++) {
+      const x = THREE.MathUtils.lerp(-34, 34, random());
+      const z = -THREE.MathUtils.lerp(6, 32, random());
+      if (Math.hypot((x - 1.5) / 1.3, (z + 11) / 0.7) < 4.5) continue; // keep the wreck readable
+      plant(craterPick[Math.floor(random() * craterPick.length)], x, z, 1.4, craterFloor);
+    }
+  }
+  if (craterWall) addRimTrees(model, craterWall, textures[treePiece], groundAt, random);
 
   for (const band of bands) {
     for (let i = 0; i < band.count; i++) {
@@ -107,31 +142,68 @@ export function addFoliage(model, textures) {
     if (!face) continue;
     const name = ['hangA', 'hangB', 'hangC'][Math.floor(random() * 3)];
     const [min, max] = plants[name][2];
-    placed[name].push({ x, y: top + 0.04, z: face.z + 0.03, height: THREE.MathUtils.lerp(min, max, random()), turn: 0, flip: random() < 0.5 });
+    push(name, 'ground', { x, y: top + 0.04, z: face.z + 0.03, height: THREE.MathUtils.lerp(min, max, random()), turn: 0, flip: random() < 0.5 });
   }
 
   const materials = {};
   const matrix = new THREE.Matrix4();
   const rotation = new THREE.Quaternion();
   const up = new THREE.Vector3(0, 1, 0);
-  for (const [name, cards] of Object.entries(placed)) {
-    if (!cards.length) continue;
+  for (const [key, cards] of Object.entries(placed)) {
+    const [name, look] = key.split('|');
     const [sheetName, cell] = plants[name];
     const sprite = sprites[sheetName][cell];
-    materials[sheetName] ??= windMaterial(textures[sheets[sheetName].piece], sheets[sheetName].tint, time);
-    const mesh = new THREE.InstancedMesh(cardGeometry(sprite, hanging.has(name)), materials[sheetName], cards.length);
+    const front = look === 'front';
+    materials[key.replace(name, sheetName)] ??= windMaterial(
+      textures[sheets[sheetName].piece], front ? '#3a4a40' : sheets[sheetName].tint, time, front,
+    );
+    const mesh = new THREE.InstancedMesh(
+      cardGeometry(sprite, hanging.has(name)), materials[key.replace(name, sheetName)], cards.length,
+    );
     cards.forEach(({ x, y, z, height, turn, flip }, index) => {
       rotation.setFromAxisAngle(up, turn);
       matrix.compose(new THREE.Vector3(x, y, z), rotation, new THREE.Vector3(flip ? -height : height, height, height));
       mesh.setMatrixAt(index, matrix);
     });
-    mesh.receiveShadow = true;
-    mesh.renderOrder = terrain.renderOrder;
+    mesh.receiveShadow = !front;
+    // Foreground plants draw after the player sprite (order 12) so they pass in front of it.
+    mesh.renderOrder = front ? 13 : terrain.renderOrder;
     mesh.frustumCulled = false; // instances span the whole path
-    model.add(mesh);
+    (front ? frontGroup : model).add(mesh);
   }
 
-  return animationTime => { time.value = animationTime ?? 0; };
+  return { front: frontGroup, animate: animationTime => { time.value = animationTime ?? 0; } };
+}
+
+// Painted tree-line cards standing on the crater rim; fog hazes them into the hills.
+function addRimTrees(model, craterWall, map, groundAt, random) {
+  const material = new THREE.MeshStandardMaterial({
+    map, color: '#d5ded4', transparent: true, depthWrite: false, side: THREE.DoubleSide, roughness: 1,
+  });
+  // Soft sides so overlapping cards read as one continuous tree line, never as rectangles.
+  material.onBeforeCompile = shader => {
+    shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
+      #include <map_fragment>
+      diffuseColor.a *= smoothstep(0.0, 0.25, min(vMapUv.x, 1.0 - vMapUv.x));
+    `);
+  };
+  material.customProgramCacheKey = () => 'rim-trees';
+  const aspect = map.image.width / map.image.height;
+  for (let i = 0; i < 26; i++) {
+    const angle = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(-8, 188, (i + random() * 0.7) / 26));
+    const x = crater.x + (crater.rx + 14) * Math.cos(angle);
+    const z = -(crater.y + (crater.ry + 14) * Math.sin(angle));
+    const y = groundAt(x, z, craterWall);
+    if (y === null) continue;
+    const height = THREE.MathUtils.lerp(7, 10, random());
+    const geometry = new THREE.PlaneGeometry(height * aspect, height);
+    geometry.translate(0, height / 2, 0);
+    const card = new THREE.Mesh(geometry, material);
+    card.position.set(x, y - 1.2, z);
+    if (random() < 0.5) card.scale.x = -1;
+    card.renderOrder = craterWall.renderOrder;
+    model.add(card);
+  }
 }
 
 // Find each plant's tight bounds inside its grid cell from the alpha channel.
@@ -183,9 +255,9 @@ function cardGeometry({ u0, u1, v0, v1, aspect }, hangs) {
   return geometry;
 }
 
-function windMaterial(map, tint, time) {
+function windMaterial(map, tint, time, foreground = false) {
   const material = new THREE.MeshStandardMaterial({
-    map, color: tint, alphaTest: 0.4, transparent: true, side: THREE.DoubleSide, roughness: 1,
+    map, color: tint, alphaTest: 0.4, transparent: true, side: THREE.DoubleSide, roughness: 1, fog: !foreground,
   });
   material.onBeforeCompile = shader => {
     shader.uniforms.windTime = time;

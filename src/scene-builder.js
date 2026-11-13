@@ -41,7 +41,11 @@ function addModel(root, model, placement) {
 export function buildScene(layout, textures, model = null) {
   const root = new THREE.Group();
   const model3d = model && addModel(root, model, layout.model);
-  const animateFoliage = model3d ? addFoliage(model3d, textures) : null;
+  const foliage = model3d ? addFoliage(model3d, textures) : null;
+  if (foliage?.front) {
+    foliage.front.scale.setScalar(layout.model.scale);
+    root.add(foliage.front);
+  }
   const strips = [];
   const props = [];
   const animateOaks = [];
@@ -185,7 +189,9 @@ export function buildScene(layout, textures, model = null) {
     draw(pan, lift, animationTime = null) {
       player.draw(pan);
       if (model3d) model3d.position.set(layout.model.x - pan, layout.model.y, 0);
-      animateFoliage?.(animationTime);
+      foliage?.animate(animationTime);
+      // Foreground plants follow the camera height so they always fill the bottom of the frame.
+      foliage?.front?.position.set(layout.model.x - pan, lift - 0.6, 0);
       for (const animate of animateOaks) animate(animationTime);
       for (const { mesh, x, y, speed, width } of strips) {
         mesh.position.y = lift + (y - lift) / speed;

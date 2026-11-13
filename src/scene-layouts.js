@@ -35,8 +35,10 @@ function validate(layout) {
     throw new Error('Place finishX on a platform.');
   }
   if (layout.model !== undefined) {
-    const { file, scale, x, y } = layout.model ?? {};
-    if (typeof file !== 'string' || !file.endsWith('.glb')) throw new Error('model.file must be a .glb path.');
+    const { files, scale, x, y } = layout.model ?? {};
+    if (!Array.isArray(files) || !files.length || !files.every(file => typeof file === 'string' && file.endsWith('.glb'))) {
+      throw new Error('model.files must list .glb paths.');
+    }
     if (![scale, x, y].every(Number.isFinite) || scale <= 0) {
       throw new Error('model needs a positive scale and numeric x and y.');
     }

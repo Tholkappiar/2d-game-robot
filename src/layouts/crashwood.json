@@ -1,45 +1,9 @@
 {
   "name": "Crashwood",
-  "spawnX": -2.3,
-  "finishX": 2.75,
+  "spawnX": -2.2,
+  "finishX": 2.4,
   "finishMarker": false,
   "platforms": [
-    {
-      "left": -2.925,
-      "right": -2.8641,
-      "y": -0.1982,
-      "endY": -0.2012
-    },
-    {
-      "left": -2.8641,
-      "right": -2.8031,
-      "y": -0.2012,
-      "endY": -0.2042
-    },
-    {
-      "left": -2.8031,
-      "right": -2.7422,
-      "y": -0.2042,
-      "endY": -0.2183
-    },
-    {
-      "left": -2.7422,
-      "right": -2.6812,
-      "y": -0.2183,
-      "endY": -0.2329
-    },
-    {
-      "left": -2.6812,
-      "right": -2.6203,
-      "y": -0.2329,
-      "endY": -0.2461
-    },
-    {
-      "left": -2.6203,
-      "right": -2.5594,
-      "y": -0.2461,
-      "endY": -0.2666
-    },
     {
       "left": -2.5594,
       "right": -2.4984,
@@ -543,42 +507,6 @@
       "right": 2.5594,
       "y": -0.2541,
       "endY": -0.2367
-    },
-    {
-      "left": 2.5594,
-      "right": 2.6203,
-      "y": -0.2367,
-      "endY": -0.2133
-    },
-    {
-      "left": 2.6203,
-      "right": 2.6812,
-      "y": -0.2133,
-      "endY": -0.1973
-    },
-    {
-      "left": 2.6812,
-      "right": 2.7422,
-      "y": -0.1973,
-      "endY": -0.1829
-    },
-    {
-      "left": 2.7422,
-      "right": 2.8031,
-      "y": -0.1829,
-      "endY": -0.1719
-    },
-    {
-      "left": 2.8031,
-      "right": 2.8641,
-      "y": -0.1719,
-      "endY": -0.1679
-    },
-    {
-      "left": 2.8641,
-      "right": 2.925,
-      "y": -0.1679,
-      "endY": -0.1702
     }
   ],
   "placements": [
@@ -597,45 +525,26 @@
       "bottom": -1.2
     },
     {
-      "piece": "crash-basin-v2",
-      "layer": "crash-basin",
-      "x": 0.3,
-      "width": 4.0,
-      "bottom": -1.1
-    },
-    {
-      "piece": "crash-woods-v2",
-      "layer": "crash-forest",
-      "x": -2.6,
-      "width": 3.6,
-      "bottom": -0.9
-    },
-    {
-      "piece": "crash-woods-v2",
-      "layer": "crash-forest",
-      "x": 3.6,
-      "width": 3.6,
-      "bottom": -0.9,
-      "flip": true
-    },
-    {
       "piece": "crash-foreground-v2",
       "layer": "crash-foreground",
-      "x": -1.9,
+      "x": -2.0,
       "width": 3.7,
       "bottom": -1.25
     },
     {
       "piece": "crash-foreground-v2",
       "layer": "crash-foreground",
-      "x": 1.9,
+      "x": 2.9,
       "width": 3.7,
       "bottom": -1.25,
       "flip": true
     }
   ],
   "model": {
-    "file": "models/crashwood-path.glb",
+    "files": [
+      "models/crashwood-path.glb",
+      "models/crashwood-crater.glb"
+    ],
     "scale": 0.25,
     "x": 0,
     "y": -0.6
