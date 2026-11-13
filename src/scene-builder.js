@@ -29,7 +29,9 @@ function addModel(root, model, placement) {
     if (placement.hide?.some(prefix => node.name.startsWith(prefix))) node.visible = false;
     if (!node.isMesh) return;
     node.renderOrder = layers.ground.order;
-    node.castShadow = true;
+    // The big ground meshes only receive shadows; drawing them into the shadow map too
+    // doubled their cost for almost no visible difference.
+    node.castShadow = !/^(Terrain|Crater)/.test(node.name);
     node.receiveShadow = true;
     const materials = Array.isArray(node.material) ? node.material : [node.material];
     for (const material of materials) {

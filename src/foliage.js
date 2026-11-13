@@ -82,8 +82,9 @@ export function addFoliage(model, textures, kitComing = true) {
   const craterFloor = model.getObjectByName('CraterFloor_Export');
   model.updateMatrixWorld(true);
   // Half the path length in meters, read from the terrain so a longer Blender path just works.
+  // The mesh runs past the walkable part (to hide its edges); dress only what the camera can reach.
   terrain.geometry.computeBoundingBox();
-  const half = terrain.geometry.boundingBox.max.x;
+  const half = Math.min(terrain.geometry.boundingBox.max.x, 34);
   const stretch = half / 12; // plant counts were tuned on a 24 m path
   const toLocal = new THREE.Matrix4().copy(model.matrixWorld).invert();
   const raycaster = new THREE.Raycaster();
@@ -99,7 +100,13 @@ export function addFoliage(model, textures, kitComing = true) {
     const hit = raycaster.intersectObject(target, false)[0];
     return hit && hit.point.applyMatrix4(toLocal);
   }
-  const groundAt = (x, z, target = terrain) => cast(new THREE.Vector3(x, 80, z), new THREE.Vector3(0, -1, 0), target)?.y ?? null;
+  // Ground height lookups go through a triangle grid: thousands of plants each need one, and a
+  // full raycast against a 70k-triangle mesh per plant froze the page.
+  const samplers = new Map();
+  const groundAt = (x, z, target = terrain) => {
+    if (!samplers.has(target)) samplers.set(target, heightSampler(target, toLocal));
+    return samplers.get(target)(x, z);
+  };
 
   function plant(name, x, z, sizeScale = 1, target = terrain) {
     const y = groundAt(x, z, target);
@@ -336,4 +343,55 @@ function addCraterProps(model, craterFloor, textures, groundAt) {
     card.receiveShadow = true;
     model.add(card);
   }
+}
+
+// Top surface height of a mesh at (x, z), in the model's local space. Triangles are bucketed
+// into a 1 m grid once, so each lookup only tests the handful of triangles under that point.
+function heightSampler(mesh, toLocal) {
+  mesh.updateMatrixWorld(true);
+  const toModel = new THREE.Matrix4().multiplyMatrices(toLocal, mesh.matrixWorld);
+  const position = mesh.geometry.getAttribute('position');
+  const index = mesh.geometry.index;
+  const count = position.count;
+  const xs = new Float32Array(count), ys = new Float32Array(count), zs = new Float32Array(count);
+  const v = new THREE.Vector3();
+  for (let i = 0; i < count; i++) {
+    v.fromBufferAttribute(position, i).applyMatrix4(toModel);
+    xs[i] = v.x; ys[i] = v.y; zs[i] = v.z;
+  }
+  const cell = 1;
+  const cells = new Map();
+  const triangles = index ? index.count / 3 : count / 3;
+  const corner = (t, k) => (index ? index.getX(t * 3 + k) : t * 3 + k);
+  for (let t = 0; t < triangles; t++) {
+    const a = corner(t, 0), b = corner(t, 1), c = corner(t, 2);
+    const x0 = Math.floor(Math.min(xs[a], xs[b], xs[c]) / cell), x1 = Math.floor(Math.max(xs[a], xs[b], xs[c]) / cell);
+    const z0 = Math.floor(Math.min(zs[a], zs[b], zs[c]) / cell), z1 = Math.floor(Math.max(zs[a], zs[b], zs[c]) / cell);
+    for (let gx = x0; gx <= x1; gx++) {
+      for (let gz = z0; gz <= z1; gz++) {
+        const key = gx * 100003 + gz;
+        let list = cells.get(key);
+        if (!list) cells.set(key, list = []);
+        list.push(a, b, c);
+      }
+    }
+  }
+  return (x, z) => {
+    const list = cells.get(Math.floor(x / cell) * 100003 + Math.floor(z / cell));
+    if (!list) return null;
+    let best = null;
+    for (let i = 0; i < list.length; i += 3) {
+      const a = list[i], b = list[i + 1], c = list[i + 2];
+      // Barycentric test in the XZ plane, then interpolate the height.
+      const d = (zs[b] - zs[c]) * (xs[a] - xs[c]) + (xs[c] - xs[b]) * (zs[a] - zs[c]);
+      if (Math.abs(d) < 1e-9) continue;
+      const w1 = ((zs[b] - zs[c]) * (x - xs[c]) + (xs[c] - xs[b]) * (z - zs[c])) / d;
+      const w2 = ((zs[c] - zs[a]) * (x - xs[c]) + (xs[a] - xs[c]) * (z - zs[c])) / d;
+      const w3 = 1 - w1 - w2;
+      if (w1 < -1e-4 || w2 < -1e-4 || w3 < -1e-4) continue;
+      const y = w1 * ys[a] + w2 * ys[b] + w3 * ys[c];
+      if (best === null || y > best) best = y;
+    }
+    return best;
+  };
 }

@@ -12,8 +12,9 @@ const pebbles = ['Pebble_Round_1', 'Pebble_Round_2', 'Pebble_Round_3', 'Pebble_R
   'Pebble_Square_1', 'Pebble_Square_2', 'Pebble_Square_3', 'Pebble_Square_4', 'Pebble_Square_5', 'Pebble_Square_6'];
 // (The kit's Plant_* models are purple alien plants — left out to keep the palette.)
 const shrubs = ['Bush_Common', 'Bush_Common_Flowers', 'Fern_1'];
-const grasses = ['Grass_Common_Short', 'Grass_Common_Tall', 'Grass_Wispy_Short', 'Grass_Wispy_Tall',
-  'Clover_1', 'Clover_2', 'Flower_3_Group', 'Flower_4_Group'];
+// Light grass models only (150-750 triangles); the 1,700-triangle flower clump was too heavy in bulk.
+const grasses = ['Grass_Common_Short', 'Grass_Common_Tall', 'Grass_Common_Short', 'Grass_Wispy_Short',
+  'Clover_1', 'Flower_3_Group'];
 
 export const kitModels = [...trees, ...deadTrees, ...rocks, ...pebbles, ...shrubs, ...grasses, 'Mushroom_Common'];
 
@@ -81,6 +82,12 @@ function prepare(kit, renderOrder, time) {
 }
 
 // Collect placements per model, then build one InstancedMesh per sub-mesh.
+// Only big things cast shadows; grass, flowers and pebbles would double the GPU work for little gain.
+const castsShadow = name => rocks.includes(name) || name.startsWith('Bush');
+const chunkSize = 8; // meters: one instanced batch per model per 8 m of path
+
+// Collect placements per model and 8 m chunk, then build one InstancedMesh per sub-mesh per
+// chunk, with bounds, so the GPU skips every chunk outside the camera view.
 function makeBatcher(kit, parent, renderOrder) {
   const lists = {};
   const matrix = new THREE.Matrix4();
@@ -88,18 +95,20 @@ function makeBatcher(kit, parent, renderOrder) {
   return {
     add(name, position, scale, turn = 0, tilt = null) {
       quaternion.setFromEuler(new THREE.Euler(tilt?.x ?? 0, turn, tilt?.z ?? 0, 'YXZ'));
-      (lists[name] ??= []).push(new THREE.Matrix4().compose(position, quaternion.clone(), new THREE.Vector3(scale, scale, scale)));
+      const key = `${name}|${Math.floor(position.x / chunkSize)}`;
+      (lists[key] ??= []).push(new THREE.Matrix4().compose(position, quaternion.clone(), new THREE.Vector3(scale, scale, scale)));
     },
     build() {
-      for (const [name, placements] of Object.entries(lists)) {
+      for (const [key, placements] of Object.entries(lists)) {
+        const name = key.split('|')[0];
         kit[name].scene.traverse(node => {
           if (!node.isMesh) return;
           const mesh = new THREE.InstancedMesh(node.geometry, node.material, placements.length);
           placements.forEach((placement, index) => mesh.setMatrixAt(index, matrix.multiplyMatrices(placement, node.matrixWorld)));
-          mesh.castShadow = node.castShadow;
+          mesh.computeBoundingSphere();
+          mesh.castShadow = castsShadow(name);
           mesh.receiveShadow = true;
           mesh.renderOrder = renderOrder;
-          mesh.frustumCulled = false;
           parent.add(mesh);
         });
       }
@@ -190,7 +199,7 @@ export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, gro
     const name = pick(shrubs);
     if (position) batch.add(name, position, (0.8 + random() * 0.3) / kit[name].size.y, random() * Math.PI * 2);
   }
-  for (let i = 0; i < 380 * stretch; i++) {
+  for (let i = 0; i < 230 * stretch; i++) {
     const x = THREE.MathUtils.lerp(-half, half, random());
     const z = random() < 0.65 ? -THREE.MathUtils.lerp(0.5, 1.6, random()) : THREE.MathUtils.lerp(0.9, 1.6, random());
     const position = at(x, z, terrain);
