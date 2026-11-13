@@ -170,7 +170,6 @@ async function start() {
     const sway = motion.matches ? { x: 0, y: 0, roll: 0 } : rig.drift(time);
     depotCamera.position.set(cameraX + sway.x, lift + rise + sway.y, cameraDistance * zoom);
     depotCamera.rotation.set(THREE.MathUtils.degToRad(tilt), 0, sway.roll);
-    pollen.position.x = cameraX;
     followSun(cameraX);
     activeLayout.draw(cameraX, lift, motion.matches ? null : time);
     pollen.visible = !motion.matches;
@@ -295,16 +294,22 @@ async function start() {
 }
 
 function createPollen() {
+  // Pollen lives in the 3D world (not on the screen): spread through the depth of the scene,
+  // so near motes are bigger and drift past faster than far ones, and rocks and plants hide them.
+  const count = 60;
   const positions = [];
-  // Plenty of slow-drifting pollen across the whole frame height.
-  for (let i = 0; i < 160; i++) {
-    positions.push(Math.random() * 4.4 - 2.2, Math.random() * 1.7 - 0.9, Math.random());
+  for (let i = 0; i < count; i++) {
+    positions.push(
+      THREE.MathUtils.lerp(-11, 11, Math.random()), // along the level (world units)
+      THREE.MathUtils.lerp(-0.9, 1.6, Math.random()), // height
+      THREE.MathUtils.lerp(-3.5, 1.3, Math.random()), // depth: behind the path up to near the camera
+    );
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   const material = new THREE.ShaderMaterial({
     transparent: true,
-    depthTest: false,
+    depthTest: true,
     depthWrite: false,
     uniforms: { time: { value: 0 }, pixelRatio: { value: 1 } },
     vertexShader: `
@@ -312,24 +317,29 @@ function createPollen() {
       uniform float pixelRatio;
       varying float opacity;
       void main() {
-        float phase = position.z * 6.283;
-        float x = mod(position.x + 2.2 + time * (0.035 + position.z * 0.05), 4.4) - 2.2;
-        float y = position.y + 0.055 * sin(time * 0.9 + phase);
-        opacity = 0.2 + 0.35 * pow(0.5 + 0.5 * sin(time * 1.2 + phase), 2.0);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(x, y, 0.0, 1.0);
-        gl_PointSize = (2.5 + 2.5 * position.z) * pixelRatio;
+        float phase = fract(sin(dot(position.xz, vec2(12.9898, 78.233))) * 43758.5453) * 6.283;
+        vec3 p = position;
+        p.x = mod(p.x + 11.0 + time * 0.03 + 0.25 * sin(time * 0.13 + phase), 22.0) - 11.0;
+        p.y += 0.08 * sin(time * 0.6 + phase) + 0.03 * sin(time * 1.7 + phase * 2.0);
+        p.z += 0.10 * sin(time * 0.21 + phase);
+        vec4 view = modelViewMatrix * vec4(p, 1.0);
+        float depth = -view.z;
+        gl_Position = projectionMatrix * view;
+        gl_PointSize = clamp(9.0 / depth, 1.0, 9.0) * pixelRatio;   // perspective size
+        float twinkle = 0.35 + 0.65 * pow(0.5 + 0.5 * sin(time * 1.1 + phase), 2.0);
+        opacity = twinkle * smoothstep(9.0, 3.0, depth) * smoothstep(0.4, 1.0, depth);
       }
     `,
     fragmentShader: `
       varying float opacity;
       void main() {
         float radius = length(gl_PointCoord - vec2(0.5));
-        gl_FragColor = vec4(1.0, 0.89, 0.58, opacity * (1.0 - smoothstep(0.08, 0.5, radius)));
+        gl_FragColor = vec4(1.0, 0.9, 0.62, 0.7 * opacity * (1.0 - smoothstep(0.1, 0.5, radius)));
       }
     `,
   });
   const points = new THREE.Points(geometry, material);
-  points.renderOrder = 20;
+  points.renderOrder = 12.5;
   points.frustumCulled = false;
   return points;
 }
