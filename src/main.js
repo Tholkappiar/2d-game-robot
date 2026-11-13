@@ -1,0 +1,277 @@
+import * as THREE from 'three';
+import './style.css';
+import { buildScene, makePlane } from './scene-builder.js';
+import { loadLayouts } from './scene-layouts.js';
+
+const host = document.querySelector('#scene');
+const status = document.querySelector('#status');
+const levelPicker = document.querySelector('#level-picker');
+const viewButtons = document.querySelectorAll('[data-view]');
+const panControls = document.querySelector('#pan-controls');
+const movementHelp = document.querySelector('#movement-help');
+const finish = document.querySelector('#finish');
+const replay = document.querySelector('#replay');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#111b18');
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+camera.position.z = 2;
+const depotCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 32);
+depotCamera.position.z = 2;
+const frameAspect = 1672 / 941;
+const frameScale = 1.065;
+
+async function start() {
+  const { layouts, errors } = loadLayouts();
+  const requestedLayout = new URLSearchParams(location.search).get('level') ?? 'crashwood';
+  const levelId = layouts.has(requestedLayout) ? requestedLayout : layouts.keys().next().value;
+  const layout = layouts.get(levelId);
+  if (!layout) throw new Error(errors.join(' ') || 'Add a layout in src/layouts.');
+  const crashwood = levelId === 'crashwood';
+  for (const [id, level] of layouts) levelPicker.add(new Option(level.name, id));
+  levelPicker.value = levelId;
+  levelPicker.disabled = layouts.size < 2;
+  levelPicker.addEventListener('change', () => {
+    const url = new URL(location.href);
+    url.searchParams.set('level', levelPicker.value);
+    location.assign(url);
+  });
+  document.title = layout.name;
+  host.setAttribute('aria-label', `${layout.name} scene preview`);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  host.appendChild(renderer.domElement);
+  const loader = new THREE.TextureLoader();
+  const backgroundPiece = layout.placements.find(placement => placement.layer === 'background')?.piece
+    ?? 'background-clear';
+  const referencePiece = crashwood ? layout.placements.find(placement => placement.layer === 'crash-basin').piece : 'concept';
+  const names = new Set([backgroundPiece, referencePiece]);
+  for (const { piece } of layout.placements) names.add(piece);
+  const textures = Object.fromEntries(await Promise.all(Array.from(names, async name => {
+    const texture = await loader.loadAsync(`${import.meta.env.BASE_URL}assets/${name}.png`)
+      .catch(() => { throw new Error(`Could not load artwork "${name}.png".`); });
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return [name, texture];
+  })));
+
+  function artwork(name) {
+    const map = textures[name];
+    const { width, height } = map.image;
+    return makePlane(map, 2 * width / height, 2, 0);
+  }
+
+  const depot = new THREE.Group();
+  const pollen = createPollen();
+  depot.add(pollen);
+
+  const activeLayout = buildScene(layout, textures);
+  depot.add(activeLayout.root);
+  const descent = layout.platforms?.find(platform => platform.endY < platform.y);
+  const controls = 'A/D move · Space jump';
+  const objective = layout.finishX === undefined ? controls : `${controls} · Follow the trail right`;
+  movementHelp.textContent = objective;
+  let viewWidth = 2 * frameAspect / frameScale;
+
+  const views = { depot, background: artwork(backgroundPiece), concept: artwork(referencePiece) };
+  scene.add(...Object.values(views));
+  let activeView = 'depot';
+  const heldKeys = new Set();
+  const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let pan = 0;
+  let lift = crashwood ? activeLayout.player.terrainY + 0.53 : 0;
+  let completed = false;
+
+  let time = 0;
+  let jumpRequested = false;
+
+  function clampPan(value) {
+    const { bounds } = activeLayout;
+    return bounds ? THREE.MathUtils.clamp(value, bounds.left + viewWidth / 2, bounds.right - viewWidth / 2) : value;
+  }
+
+  function panTarget() {
+    const { player, bounds } = activeLayout;
+    const offset = crashwood ? -viewWidth * 0.14
+      : bounds ? THREE.MathUtils.clamp(player.spawnX, -viewWidth * 0.30, viewWidth * 0.30) : player.spawnX;
+    return clampPan(player.x - offset);
+  }
+
+  function render() {
+    if (activeView !== 'depot') {
+      renderer.render(scene, camera);
+      return;
+    }
+    depotCamera.position.y = lift;
+    activeLayout.draw(clampPan(pan), lift, motion.matches ? null : time);
+    pollen.visible = !motion.matches;
+    pollen.material.uniforms.time.value = time;
+    pollen.material.uniforms.pixelRatio.value = renderer.getPixelRatio();
+    renderer.render(scene, depotCamera);
+  }
+
+  function resize() {
+    const width = host.clientWidth;
+    const height = host.clientHeight;
+    if (!width || !height) return;
+    const aspect = width / height;
+    // Cover the viewport with the reference art, preserving its aspect ratio.
+    const artHalfHeight = Math.min(1, frameAspect / aspect);
+    camera.left = -aspect * artHalfHeight;
+    camera.right = aspect * artHalfHeight;
+    camera.top = artHalfHeight;
+    camera.bottom = -artHalfHeight;
+    camera.updateProjectionMatrix();
+    depotCamera.aspect = aspect;
+    viewWidth = 2 * aspect / frameScale;
+    const { bounds } = activeLayout;
+    if (bounds) viewWidth = Math.min(viewWidth, bounds.right - bounds.left);
+    depotCamera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(viewWidth / (4 * aspect)));
+    depotCamera.updateProjectionMatrix();
+    activeLayout.setViewWidth(viewWidth);
+    renderer.setSize(width, height);
+    render();
+  }
+
+  function selectView(name) {
+    activeView = name;
+    clearInput();
+    for (const [key, view] of Object.entries(views)) view.visible = key === activeView;
+    for (const button of viewButtons) button.setAttribute('aria-pressed', String(button.dataset.view === activeView));
+    panControls.hidden = activeView !== 'depot';
+    finish.hidden = activeView !== 'depot' || !completed;
+    render();
+  }
+
+  for (const button of viewButtons) {
+    button.disabled = false;
+    button.addEventListener('click', () => {
+      selectView(button.dataset.view);
+      if (activeView === 'depot') host.focus();
+    });
+  }
+  function restartLayout() {
+    activeLayout.player.reset();
+    completed = false;
+    finish.hidden = true;
+    movementHelp.textContent = objective;
+    pan = panTarget();
+    lift = crashwood ? activeLayout.player.terrainY + 0.53 : 0;
+    clearInput();
+    host.focus();
+    render();
+  }
+
+  document.querySelector('#restart').addEventListener('click', restartLayout);
+  replay.addEventListener('click', restartLayout);
+
+  const movementKeys = ['KeyA', 'KeyD', 'Space'];
+  window.addEventListener('keydown', event => {
+    if (activeView !== 'depot' || !movementKeys.includes(event.code) ||
+        event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.target === levelPicker || (event.code === 'Space' && event.target.closest?.('button'))) return;
+    event.preventDefault();
+    if (event.code === 'Space' && !event.repeat) jumpRequested = true;
+    heldKeys.add(event.code);
+  });
+  window.addEventListener('keyup', event => heldKeys.delete(event.code));
+  function clearInput() {
+    heldKeys.clear();
+    jumpRequested = false;
+  }
+  window.addEventListener('blur', clearInput);
+  document.addEventListener('visibilitychange', clearInput);
+
+  let previousTime;
+  renderer.setAnimationLoop(now => {
+    const delta = previousTime === undefined ? 0 : Math.min((now - previousTime) / 1000, 0.05);
+    previousTime = now;
+    if (activeView !== 'depot') return;
+    const horizontal = Number(heldKeys.has('KeyD')) - Number(heldKeys.has('KeyA'));
+    const { player } = activeLayout;
+    if (!completed) player.step(delta, horizontal, jumpRequested);
+    jumpRequested = false;
+    const hint = player.hanging ? 'Space to climb onto the ledge' : objective;
+    if (movementHelp.textContent !== hint) movementHelp.textContent = hint;
+    if (!completed && player.grounded && player.x >= layout.finishX) {
+      completed = true;
+      finish.hidden = false;
+      clearInput();
+      replay.focus({ preventScroll: true });
+    }
+    pan = THREE.MathUtils.damp(pan, panTarget(), 6, delta);
+    // Follow the descent without tracking each jump on the bounded trail.
+    const cameraY = crashwood ? player.terrainY + 0.53 : descent && player.x >= descent.left
+      ? Math.min(0, player.terrainY + 0.44)
+      : activeLayout.bounds ? 0 : player.jumpHeight * 0.5;
+    lift = THREE.MathUtils.damp(lift, cameraY, 5, delta);
+    if (!motion.matches) time += delta;
+    render();
+  });
+  new ResizeObserver(resize).observe(host);
+  renderer.domElement.addEventListener('webglcontextlost', event => {
+    event.preventDefault();
+    status.textContent = 'Graphics connection lost. Reload to restore the preview.';
+    status.hidden = false;
+  });
+  pan = panTarget();
+  selectView(activeView);
+  resize();
+  status.textContent = errors.join(' ');
+  status.hidden = errors.length === 0;
+}
+
+function createPollen() {
+  const positions = [];
+  for (let i = 0; i < 38; i++) {
+    positions.push(Math.random() * 4.4 - 2.2, Math.random() * 0.78 - 0.76, Math.random());
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  const material = new THREE.ShaderMaterial({
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    uniforms: { time: { value: 0 }, pixelRatio: { value: 1 } },
+    vertexShader: `
+      uniform float time;
+      uniform float pixelRatio;
+      varying float opacity;
+      void main() {
+        float phase = position.z * 6.283;
+        float x = mod(position.x + 2.2 + time * (0.035 + position.z * 0.05), 4.4) - 2.2;
+        float y = position.y + 0.055 * sin(time * 0.9 + phase);
+        opacity = 0.2 + 0.35 * pow(0.5 + 0.5 * sin(time * 1.2 + phase), 2.0);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(x, y, 0.0, 1.0);
+        gl_PointSize = (2.5 + 2.5 * position.z) * pixelRatio;
+      }
+    `,
+    fragmentShader: `
+      varying float opacity;
+      void main() {
+        float radius = length(gl_PointCoord - vec2(0.5));
+        gl_FragColor = vec4(1.0, 0.89, 0.58, opacity * (1.0 - smoothstep(0.08, 0.5, radius)));
+      }
+    `,
+  });
+  const points = new THREE.Points(geometry, material);
+  points.renderOrder = 20;
+  points.frustumCulled = false;
+  return points;
+}
+
+document.querySelector('#fullscreen').addEventListener('click', async () => {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen();
+  } catch {
+    status.textContent = 'Fullscreen is unavailable in this browser.';
+    status.hidden = false;
+  }
+});
+
+start().catch(error => {
+  console.error(error);
+  status.textContent = `Unable to load the scene. ${error.message}`;
+  status.hidden = false;
+});

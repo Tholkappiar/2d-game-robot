@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Overgrown Depot</title>
+  </head>
+  <body>
+    <main id="scene" tabindex="-1" aria-label="Overgrown Depot scene preview"></main>
+    <nav aria-label="Preview controls">
+      <div class="scene-picker">
+        <label for="level-picker">Scene</label>
+        <select id="level-picker" disabled></select>
+      </div>
+      <button data-view="depot" aria-pressed="true" disabled>Play</button>
+      <button data-view="background" aria-pressed="false" disabled>Background</button>
+      <button data-view="concept" aria-pressed="false" disabled>Scene artwork</button>
+      <button id="fullscreen">Fullscreen</button>
+      <div id="pan-controls" hidden>
+        <button id="restart">Restart</button>
+        <small id="movement-help">A/D move · Space jump</small>
+      </div>
+    </nav>
+    <p id="status" role="status">Loading artwork…</p>
+    <section id="finish" hidden aria-labelledby="finish-title">
+      <p id="finish-title" role="status">Forest trail reached</p>
+      <button id="replay">Play again</button>
+    </section>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

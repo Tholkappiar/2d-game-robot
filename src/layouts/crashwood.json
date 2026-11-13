@@ -1,0 +1,28 @@
+{
+  "name": "Crashwood",
+  "spawnX": 0,
+  "finishX": 21.85,
+  "finishMarker": false,
+  "platforms": [
+    { "left": -2.6, "right": 1.5, "y": -0.27, "endY": -0.37 },
+    { "left": 1.5, "right": 5.0, "y": -0.37, "endY": -0.68 },
+    { "left": 5.0, "right": 8.0, "y": -0.68, "endY": -0.76 },
+    { "left": 8.0, "right": 12.0, "y": -0.76, "endY": -0.73 },
+    { "left": 12.0, "right": 15.0, "y": -0.73, "endY": -0.56 },
+    { "left": 15.0, "right": 19.6, "y": -0.56, "endY": 0.13 },
+    { "left": 19.6, "right": 22.0, "y": 0.13, "endY": 0.24 },
+    { "left": 22.0, "right": 24.2, "y": 0.24, "endY": 0.20 }
+  ],
+  "placements": [
+    { "piece": "lana-video-sky", "layer": "background", "x": 0.77, "width": 7.2, "bottom": -1.38 },
+    { "piece": "lana-video-basin", "layer": "crash-basin", "x": 6.12, "width": 7.85, "bottom": -1.03 },
+    { "piece": "lana-video-woods", "layer": "crash-forest", "x": 0.38, "width": 11.6, "bottom": -1.40 },
+    { "piece": "lana-video-woods", "layer": "crash-forest", "x": 18.70, "width": 10.0, "bottom": -0.91, "flip": true },
+    { "piece": "lana-video-trail", "layer": "ground", "x": 10.8, "width": 26.8, "bottom": 0, "surface": true },
+    { "piece": "lana-video-foreground", "layer": "crash-foreground", "x": 2.36, "width": 8.1, "bottom": -1.31 },
+    { "piece": "lana-video-foreground", "layer": "crash-foreground", "x": 10.31, "width": 8.1, "bottom": -1.40, "flip": true },
+    { "piece": "lana-video-foreground", "layer": "crash-foreground", "x": 18.26, "width": 8.1, "bottom": -1.40 },
+    { "piece": "lana-video-foreground", "layer": "crash-foreground", "x": 26.21, "width": 8.1, "bottom": -1.31, "flip": true },
+    { "piece": "lana-video-foreground", "layer": "crash-foreground", "x": 34.16, "width": 8.1, "bottom": -0.76 }
+  ]
+}
