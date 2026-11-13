@@ -31,7 +31,8 @@ async function start() {
   const levelId = layouts.has(requestedLayout) ? requestedLayout : layouts.keys().next().value;
   const layout = layouts.get(levelId);
   // ?x=1.5 starts the player at that spot (handy for checking one part of a long level).
-  const startX = Number(new URLSearchParams(location.search).get('x'));
+  const startParam = new URLSearchParams(location.search).get('x');
+  const startX = startParam === null ? NaN : Number(startParam);
   if (layout && Number.isFinite(startX) && layout.platforms?.some(({ left, right }) => startX >= left && startX <= right)) {
     layout.spawnX = startX;
   }
@@ -138,7 +139,8 @@ async function start() {
 
   function panTarget() {
     const { player, bounds } = activeLayout;
-    const offset = crashwood ? -viewWidth * 0.14
+    // Crashwood keeps the robot on the left third, with the view leading ahead to the right.
+    const offset = crashwood ? -viewWidth * 0.22
       : bounds ? THREE.MathUtils.clamp(player.spawnX, -viewWidth * 0.30, viewWidth * 0.30) : player.spawnX;
     return clampPan(player.x - offset);
   }
@@ -249,12 +251,12 @@ async function start() {
       clearInput();
       replay.focus({ preventScroll: true });
     }
-    pan = THREE.MathUtils.damp(pan, panTarget(), 6, delta);
+    pan = THREE.MathUtils.damp(pan, panTarget(), 2.2, delta); // soft, film-like follow
     // Follow the descent without tracking each jump on the bounded trail.
     const cameraY = crashwood ? player.terrainY + 0.53 : descent && player.x >= descent.left
       ? Math.min(0, player.terrainY + 0.44)
       : activeLayout.bounds ? 0 : player.jumpHeight * 0.5;
-    lift = THREE.MathUtils.damp(lift, cameraY, 5, delta);
+    lift = THREE.MathUtils.damp(lift, cameraY, 1.8, delta);
     if (!motion.matches) time += delta;
     render();
   });
@@ -273,8 +275,9 @@ async function start() {
 
 function createPollen() {
   const positions = [];
-  for (let i = 0; i < 38; i++) {
-    positions.push(Math.random() * 4.4 - 2.2, Math.random() * 0.78 - 0.76, Math.random());
+  // Plenty of slow-drifting pollen across the whole frame height.
+  for (let i = 0; i < 160; i++) {
+    positions.push(Math.random() * 4.4 - 2.2, Math.random() * 1.7 - 0.9, Math.random());
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));

@@ -2,7 +2,10 @@ import * as THREE from 'three';
 import { createRobotSprite, ledgeGrip, robotFrames } from './robot-sprites.js';
 import { surfaceHeight } from './platforms.js';
 
-const walkSpeed = 1.04;
+// A calm walk: slower top speed, eased in and out (see walkVelocity in step()).
+const walkSpeed = 0.62;
+const easeIn = 3.2;
+const easeOut = 5;
 const gravity = 4.5;
 const climbDuration = 0.55;
 const edgeClearance = 0.001;
@@ -22,12 +25,13 @@ export function createPlayer({ floorY, spawnX, platforms, bounds, jumpSpeed = 1.
     wallRight: !floors.some(other => other.left === platform.right && other.y === (platform.endY ?? platform.y)),
   }));
 
-  let x, y, velocityY, grounded, animation, frameTime, ledge, climbTime;
+  let x, y, velocityY, walkVelocity, grounded, animation, frameTime, ledge, climbTime;
 
   function reset() {
     x = spawnX;
     y = spawnY;
     velocityY = 0;
+    walkVelocity = 0;
     grounded = true;
     animation = 'idle';
     frameTime = 0;
@@ -88,7 +92,9 @@ export function createPlayer({ floorY, spawnX, platforms, bounds, jumpSpeed = 1.
         grounded = false;
       }
 
-      let nextX = x + direction * walkSpeed * delta;
+      walkVelocity = THREE.MathUtils.damp(walkVelocity, direction * walkSpeed, direction ? easeIn : easeOut, delta);
+      if (Math.abs(walkVelocity) < 0.005) walkVelocity = 0;
+      let nextX = x + walkVelocity * delta;
       if (bounds) nextX = THREE.MathUtils.clamp(nextX, bounds.left, bounds.right);
       const nextVelocity = velocityY - gravity * delta;
       let nextY = grounded ? y : y + nextVelocity * delta;
@@ -141,11 +147,13 @@ export function createPlayer({ floorY, spawnX, platforms, bounds, jumpSpeed = 1.
         return;
       }
 
-      const nextAnimation = grounded ? (direction ? 'run' : 'idle') : (velocityY > 0 ? 'rise' : 'fall');
+      const moving = Math.abs(walkVelocity) > 0.06;
+      const nextAnimation = grounded ? (moving ? 'run' : 'idle') : (velocityY > 0 ? 'rise' : 'fall');
       frameTime = nextAnimation === animation ? frameTime + delta : 0;
       animation = nextAnimation;
       const frames = robotFrames[animation];
-      const rate = animation === 'run' ? 15 : 2;
+      // Step rate follows the actual speed, so the feet slow down as the robot eases to a stop.
+      const rate = animation === 'run' ? 3 + 8 * Math.abs(walkVelocity) / walkSpeed : 2;
       sprite.show(Array.isArray(frames) ? frames[Math.floor(frameTime * rate) % frames.length] : frames);
     },
     draw(cameraX) {

@@ -25,6 +25,8 @@ export function makePlane(map, width, height, order, transparent = false) {
 function addModel(root, model, placement) {
   model.scale.setScalar(placement.scale);
   model.traverse(node => {
+    // Layout can switch parts off by name (e.g. "hide": ["EggWreck"] hides the wreck and its children).
+    if (placement.hide?.some(prefix => node.name.startsWith(prefix))) node.visible = false;
     if (!node.isMesh) return;
     node.renderOrder = layers.ground.order;
     node.castShadow = true;
@@ -58,7 +60,7 @@ export function buildScene(layout, textures, model = null, kit = null) {
   for (const [index, placement] of layout.placements.entries()) {
     const { piece, layer, x = 0, width, bottom, spacing, variation = 0, span, surface, fadeIn, flip } = placement;
     const {
-      strip, opaque, trimBottom = 0, heightScale = 1, walkingLine, surfaceLine, softenCanopyEdges, featherBase, featherSides,
+      strip, opaque, trimBottom = 0, heightScale = 1, walkingLine, surfaceLine, softenCanopyEdges, featherBase, featherSides, haze,
     } = pieces[piece];
     const { speed, order } = layers[layer];
     const map = textures[piece];
@@ -102,6 +104,17 @@ export function buildScene(layout, textures, model = null, kit = null) {
             diffuseColor.a *= mix(1.0, smoothstep(0.0, 0.045, side), smoothstep(0.2, 0.43, vMapUv.y));
           `);
         };
+      }
+      if (haze) {
+        // Wash a distant painting toward the sky colour so it sits far back in the air.
+        mesh.material.onBeforeCompile = shader => {
+          shader.uniforms.hazeAmount = { value: haze };
+          shader.fragmentShader = 'uniform float hazeAmount;\n' + shader.fragmentShader.replace('#include <map_fragment>', `
+            #include <map_fragment>
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.88, 0.95), hazeAmount);
+          `);
+        };
+        mesh.material.customProgramCacheKey = () => 'haze';
       }
       if (featherSides) {
         // Fade both side edges so a non-tiling painting blends into the layers behind.

@@ -127,6 +127,13 @@ export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, gro
     node.visible = false;
     const footprint = Math.max(size.x, size.z);
     const name = footprint < 0.6 ? pick(pebbles) : pick(rocks);
+    // Big rocks never sit on the walking line, or the robot looks like it stands on them.
+    if (footprint >= 0.6 && Math.abs(box.getCenter(new THREE.Vector3()).z) < 2.2) {
+      const shift = (box.getCenter(new THREE.Vector3()).z < 0 ? -2.4 : 2.0) - box.getCenter(new THREE.Vector3()).z;
+      box.translate(new THREE.Vector3(0, 0, shift));
+      const y = groundAt(box.getCenter(new THREE.Vector3()).x, box.getCenter(new THREE.Vector3()).z, terrain);
+      if (y !== null) box.translate(new THREE.Vector3(0, y - box.min.y, 0));
+    }
     const template = kit[name];
     const scale = footprint / Math.max(template.size.x, template.size.z) * 1.1;
     const centre = box.getCenter(new THREE.Vector3());
@@ -151,13 +158,14 @@ export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, gro
     if (position) addTree(pick(trees), position, 6 + random() * 3);
   }
   if (craterWall) {
-    for (let i = 0; i < 30; i++) {
+    // Low rim trees so the sky and the planet stay open above the crater.
+    for (let i = 0; i < 22; i++) {
       const angle = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(-10, 190, (i + random() * 0.8) / 30));
       const reach = 5 + random() * 7;
       const x = crater.x + (crater.rx + reach) * Math.cos(angle);
       const z = -(crater.y + (crater.ry + reach) * Math.sin(angle));
       const position = at(x, z, craterWall);
-      if (position) addTree(pick(trees), position, 8 + random() * 4);
+      if (position) addTree(pick(trees), position, 4.5 + random() * 2.5);
     }
   }
   // Burnt dead trees standing in the crater.
@@ -173,7 +181,7 @@ export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, gro
 
   // 3. Bushes, ferns and plants behind the walking line; grass, clover and flowers on both verges.
   const stretch = half / 12;
-  for (let i = 0; i < 26 * stretch; i++) {
+  for (let i = 0; i < 40 * stretch; i++) {
     const x = THREE.MathUtils.lerp(-half, half, random());
     const z = -THREE.MathUtils.lerp(1.4, 3.0, random());
     if (Math.abs(x - wreck.x) < 4 && z < -2.2) continue;
@@ -181,7 +189,7 @@ export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, gro
     const name = pick(shrubs);
     if (position) batch.add(name, position, (0.8 + random() * 0.3) / kit[name].size.y, random() * Math.PI * 2);
   }
-  for (let i = 0; i < 180 * stretch; i++) {
+  for (let i = 0; i < 380 * stretch; i++) {
     const x = THREE.MathUtils.lerp(-half, half, random());
     const z = random() < 0.65 ? -THREE.MathUtils.lerp(0.5, 1.6, random()) : THREE.MathUtils.lerp(0.9, 1.6, random());
     const position = at(x, z, terrain);

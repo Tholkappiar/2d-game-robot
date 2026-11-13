@@ -61,7 +61,7 @@ export const pieces = {
   'crash-forest': {},
   'crash-foreground': { softenCanopyEdges: true },
   'crash-sky-v2': { strip: true, opaque: true },
-  'crashwood/planet-ring': {},
+  'crashwood/planet-ring-soft': { haze: 0.28 },
   'crash-far-hills': { strip: true },
   'crash-basin-v2': { featherSides: 0.08 },
   'crash-woods-v2': { featherSides: 0.22 },
