@@ -5,6 +5,7 @@ import { buildScene, makePlane, cameraDistance } from './scene-builder.js';
 import { loadLayouts } from './scene-layouts.js';
 import { foliagePieces } from './foliage.js';
 import { loadKit } from './megakit.js';
+import { createCameraRig } from './camera-shots.js';
 
 const host = document.querySelector('#scene');
 const status = document.querySelector('#status');
@@ -128,19 +129,23 @@ async function start() {
   let pan = 0;
   let lift = crashwood ? activeLayout.player.terrainY + 0.53 : 0;
   let completed = false;
+  const rig = createCameraRig(layout.camera);
+  rig.snap(activeLayout.player.x);
 
   let time = 0;
   let jumpRequested = false;
 
   function clampPan(value) {
     const { bounds } = activeLayout;
-    return bounds ? THREE.MathUtils.clamp(value, bounds.left + viewWidth / 2, bounds.right - viewWidth / 2) : value;
+    // The visible width grows when a shot pulls the camera back.
+    const half = Math.min(viewWidth * rig.current.zoom, bounds ? bounds.right - bounds.left : Infinity) / 2;
+    return bounds ? THREE.MathUtils.clamp(value, bounds.left + half, bounds.right - half) : value;
   }
 
   function panTarget() {
     const { player, bounds } = activeLayout;
     // Crashwood keeps the robot on the left third, with the view leading ahead to the right.
-    const offset = crashwood ? -viewWidth * 0.22
+    const offset = crashwood ? -viewWidth * rig.current.zoom * rig.current.lead
       : bounds ? THREE.MathUtils.clamp(player.spawnX, -viewWidth * 0.30, viewWidth * 0.30) : player.spawnX;
     return clampPan(player.x - offset);
   }
@@ -151,7 +156,10 @@ async function start() {
       return;
     }
     const cameraX = clampPan(pan);
-    depotCamera.position.set(cameraX, lift, cameraDistance);
+    const { zoom, rise, tilt } = rig.current;
+    const sway = motion.matches ? { x: 0, y: 0, roll: 0 } : rig.drift(time);
+    depotCamera.position.set(cameraX + sway.x, lift + rise + sway.y, cameraDistance * zoom);
+    depotCamera.rotation.set(THREE.MathUtils.degToRad(tilt), 0, sway.roll);
     pollen.position.x = cameraX;
     followSun(cameraX);
     activeLayout.draw(cameraX, lift, motion.matches ? null : time);
@@ -180,7 +188,8 @@ async function start() {
     // viewWidth is the visible width at the walking plane (z = 0).
     depotCamera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(viewWidth / (2 * aspect * cameraDistance)));
     depotCamera.updateProjectionMatrix();
-    activeLayout.setViewWidth(viewWidth);
+    // Size tiling layers for the widest shot so their edges never show.
+    activeLayout.setViewWidth(viewWidth * rig.maxZoom);
     renderer.setSize(width, height);
     render();
   }
@@ -207,6 +216,7 @@ async function start() {
     completed = false;
     finish.hidden = true;
     movementHelp.textContent = objective;
+    rig.snap(activeLayout.player.x);
     pan = panTarget();
     lift = crashwood ? activeLayout.player.terrainY + 0.53 : 0;
     clearInput();
@@ -251,6 +261,7 @@ async function start() {
       clearInput();
       replay.focus({ preventScroll: true });
     }
+    rig.update(player.x, delta);
     pan = THREE.MathUtils.damp(pan, panTarget(), 2.2, delta); // soft, film-like follow
     // Follow the descent without tracking each jump on the bounded trail.
     const cameraY = crashwood ? player.terrainY + 0.53 : descent && player.x >= descent.left

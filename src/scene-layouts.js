@@ -1,4 +1,5 @@
 import { layers, pieces } from './scene-catalog.js';
+import { validateCamera } from './camera-shots.js';
 
 const files = import.meta.glob('./layouts/*.json', { eager: true, import: 'default' });
 const fields = ['piece', 'layer', 'x', 'width', 'bottom', 'spacing', 'variation', 'span', 'surface', 'fadeIn', 'flip'];
@@ -43,6 +44,7 @@ function validate(layout) {
       throw new Error('model needs a positive scale and numeric x and y.');
     }
   }
+  validateCamera(layout.camera);
   if (layout.finishMarker !== undefined && typeof layout.finishMarker !== 'boolean') {
     throw new Error('finishMarker must be true or false.');
   }

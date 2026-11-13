@@ -161,6 +161,7 @@ export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, gro
     // Low rim trees so the sky and the planet stay open above the crater.
     for (let i = 0; i < 22; i++) {
       const angle = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(-10, 190, (i + random() * 0.8) / 30));
+      if (Math.abs(THREE.MathUtils.radToDeg(angle) - 90) < 40) continue; // keep the saddle and Saturn clear
       const reach = 5 + random() * 7;
       const x = crater.x + (crater.rx + reach) * Math.cos(angle);
       const z = -(crater.y + (crater.ry + reach) * Math.sin(angle));

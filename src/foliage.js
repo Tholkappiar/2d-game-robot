@@ -223,6 +223,7 @@ function addRimTrees(model, craterWall, map, groundAt, random) {
   const aspect = map.image.width / map.image.height;
   for (let i = 0; i < 26; i++) {
     const angle = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(-8, 188, (i + random() * 0.7) / 26));
+    if (Math.abs(THREE.MathUtils.radToDeg(angle) - 90) < 38 && random() < 0.85) continue; // open sky over the low saddle
     const x = crater.x + (crater.rx + 14) * Math.cos(angle);
     const z = -(crater.y + (crater.ry + 14) * Math.sin(angle));
     const y = groundAt(x, z, craterWall);

@@ -3,6 +3,64 @@
   "spawnX": -6.6,
   "finishX": 6.9,
   "finishMarker": false,
+  "camera": {
+    "shots": [
+      {
+        "x": -6.8,
+        "zoom": 0.88,
+        "rise": 0.0,
+        "tilt": 0,
+        "lead": 0.26
+      },
+      {
+        "x": -4.6,
+        "zoom": 1.0,
+        "rise": 0.05,
+        "tilt": 0,
+        "lead": 0.22
+      },
+      {
+        "x": -2.4,
+        "zoom": 1.38,
+        "rise": 0.32,
+        "tilt": -2.5,
+        "lead": 0.14
+      },
+      {
+        "x": 1.4,
+        "zoom": 1.32,
+        "rise": 0.28,
+        "tilt": -2.0,
+        "lead": 0.16
+      },
+      {
+        "x": 3.6,
+        "zoom": 0.92,
+        "rise": 0.0,
+        "tilt": 0.5,
+        "lead": 0.26
+      },
+      {
+        "x": 6.4,
+        "zoom": 1.18,
+        "rise": 0.18,
+        "tilt": -1.5,
+        "lead": 0.2
+      }
+    ]
+  },
+  "model": {
+    "files": [
+      "models/crashwood-path.glb",
+      "models/crashwood-crater.glb"
+    ],
+    "scale": 0.25,
+    "x": 0,
+    "y": -0.6,
+    "hide": [
+      "EggWreck"
+    ]
+  },
   "platforms": [
     {
       "left": -7.1775,
@@ -1456,17 +1514,5 @@
       "width": 5.2,
       "bottom": -1.15
     }
-  ],
-  "model": {
-    "files": [
-      "models/crashwood-path.glb",
-      "models/crashwood-crater.glb"
-    ],
-    "scale": 0.25,
-    "x": 0,
-    "y": -0.6,
-    "hide": [
-      "EggWreck"
-    ]
-  }
+  ]
 }
