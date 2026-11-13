@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import './style.css';
 import { buildScene, makePlane } from './scene-builder.js';
 import { loadLayouts } from './scene-layouts.js';
@@ -65,7 +66,18 @@ async function start() {
   const pollen = createPollen();
   depot.add(pollen);
 
-  const activeLayout = buildScene(layout, textures);
+  let model = null;
+  if (layout.model) {
+    const gltf = await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}assets/${layout.model.file}`)
+      .catch(() => { throw new Error(`Could not load model "${layout.model.file}".`); });
+    model = gltf.scene;
+    // Warm sun from the upper right plus soft sky fill, matching the Blender preview.
+    const sun = new THREE.DirectionalLight('#ffe6c4', 2.6);
+    sun.position.set(1.2, 2.0, 1.6);
+    scene.add(sun, new THREE.HemisphereLight('#c4d8e6', '#4a4636', 1.1));
+  }
+
+  const activeLayout = buildScene(layout, textures, model);
   depot.add(activeLayout.root);
   const descent = layout.platforms?.find(platform => platform.endY < platform.y);
   const controls = 'A/D move · Space jump';

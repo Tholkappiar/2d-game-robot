@@ -13,8 +13,28 @@ export function makePlane(map, width, height, order, transparent = false) {
   return mesh;
 }
 
-export function buildScene(layout, textures) {
+// A 3D model (exported from Blender) on the walking layer. It is drawn in the
+// transparent pass at the ground layer's order so the flat parallax art keeps
+// its painter's order around it, while the model depth-tests against itself.
+function addModel(root, model, placement) {
+  model.scale.setScalar(placement.scale);
+  model.traverse(node => {
+    if (!node.isMesh) return;
+    node.renderOrder = layers.ground.order;
+    const materials = Array.isArray(node.material) ? node.material : [node.material];
+    for (const material of materials) {
+      material.transparent = true;
+      material.depthTest = true;
+      material.depthWrite = true;
+    }
+  });
+  root.add(model);
+  return model;
+}
+
+export function buildScene(layout, textures, model = null) {
   const root = new THREE.Group();
+  const model3d = model && addModel(root, model, layout.model);
   const strips = [];
   const props = [];
   const animateOaks = [];
@@ -144,6 +164,7 @@ export function buildScene(layout, textures) {
     },
     draw(pan, lift, animationTime = null) {
       player.draw(pan);
+      if (model3d) model3d.position.set(layout.model.x - pan, layout.model.y, 0);
       for (const animate of animateOaks) animate(animationTime);
       for (const { mesh, x, y, speed, width } of strips) {
         mesh.position.y = lift + (y - lift) / speed;

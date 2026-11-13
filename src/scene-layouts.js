@@ -34,6 +34,13 @@ function validate(layout) {
       !layout.platforms?.some(({ left, right }) => layout.finishX > left && layout.finishX <= right))) {
     throw new Error('Place finishX on a platform.');
   }
+  if (layout.model !== undefined) {
+    const { file, scale, x, y } = layout.model ?? {};
+    if (typeof file !== 'string' || !file.endsWith('.glb')) throw new Error('model.file must be a .glb path.');
+    if (![scale, x, y].every(Number.isFinite) || scale <= 0) {
+      throw new Error('model needs a positive scale and numeric x and y.');
+    }
+  }
   if (layout.finishMarker !== undefined && typeof layout.finishMarker !== 'boolean') {
     throw new Error('finishMarker must be true or false.');
   }
