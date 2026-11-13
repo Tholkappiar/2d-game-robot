@@ -122,6 +122,15 @@ export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, gro
   const batch = makeBatcher(kit, model, order);
   const pick = list => list[Math.floor(random() * list.length)];
   const nearWreck = (x, z, radius) => Math.hypot((x - wreck.x) / 1.6, z - wreck.z) < radius;
+  // "Settle": rest an object on the lowest ground under its footprint, so it never floats on a slope.
+  const settle = (x, z, rx, rz, target = terrain) => {
+    let low = null;
+    for (const [dx, dz] of [[0, 0], [rx, 0], [-rx, 0], [0, rz], [0, -rz], [rx * 0.7, rz * 0.7], [-rx * 0.7, -rz * 0.7]]) {
+      const y = groundAt(x + dx, z + dz, target);
+      if (y !== null && (low === null || y < low)) low = y;
+    }
+    return low;
+  };
   const at = (x, z, target) => {
     const y = groundAt(x, z, target);
     return y === null ? null : new THREE.Vector3(x, y, z);
@@ -146,17 +155,22 @@ export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, gro
     const template = kit[name];
     const scale = footprint / Math.max(template.size.x, template.size.z) * 1.1;
     const centre = box.getCenter(new THREE.Vector3());
-    batch.add(name, new THREE.Vector3(centre.x, box.min.y - template.box.min.y * scale - 0.04 * size.y, centre.z), scale, random() * Math.PI * 2);
+    const halfX = template.size.x * scale / 2, halfZ = template.size.z * scale / 2;
+    const ground = settle(centre.x, centre.z, halfX, halfZ) ?? box.min.y;
+    // Base on the lowest ground under it, sunk in by a fifth of its height so it looks embedded.
+    const sink = 0.2 * template.size.y * scale;
+    batch.add(name, new THREE.Vector3(centre.x, ground - template.box.min.y * scale - sink, centre.z), scale, random() * Math.PI * 2);
   }
 
   // 2. Living trees: groups at both ends of the path and along the crater rim, never in
   //    front of the wreck. Trees are cloned (few of them) so each keeps its own shadow.
-  const addTree = (name, position, height, tint) => {
+  const addTree = (name, position, height, tint, groundTarget = terrain) => {
     const template = kit[name];
     const tree = template.scene.clone(true);
     const scale = height / template.size.y;
     tree.scale.setScalar(scale);
-    tree.position.copy(position).y -= 0.15 * scale;
+    tree.position.copy(position);
+    tree.position.y = (settle(position.x, position.z, 0.6, 0.6, groundTarget) ?? position.y) - 0.2 * scale;
     tree.rotation.y = random() * Math.PI * 2;
     if (tint) tree.traverse(node => { if (node.isMesh) { node.material = node.material.clone(); node.material.color.set(tint); } });
     model.add(tree);
@@ -164,7 +178,7 @@ export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, gro
   for (let x = -half + 2; x < half - 1; x += 5 + random() * 5) {
     if (Math.abs(x - wreck.x) < 13) continue; // keep the crater view open
     const position = at(x + random() * 2, -(3.4 + random() * 3.0), craterFloor ?? terrain);
-    if (position) addTree(pick(trees), position, 6 + random() * 3);
+    if (position) addTree(pick(trees), position, 6 + random() * 3, null, craterFloor ?? terrain);
   }
   if (craterWall) {
     // Low rim trees so the sky and the planet stay open above the crater.
@@ -175,7 +189,7 @@ export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, gro
       const x = crater.x + (crater.rx + reach) * Math.cos(angle);
       const z = -(crater.y + (crater.ry + reach) * Math.sin(angle));
       const position = at(x, z, craterWall);
-      if (position) addTree(pick(trees), position, 4.5 + random() * 2.5);
+      if (position) addTree(pick(trees), position, 4.5 + random() * 2.5, null, craterWall);
     }
   }
   // Burnt dead trees standing in the crater.
@@ -185,7 +199,7 @@ export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, gro
       const z = -(9 + random() * 14);
       if (nearWreck(x, z, 10)) continue; // keep the wreck silhouette clean
       const position = at(x, z, craterFloor);
-      if (position) addTree(pick(deadTrees), position, 5 + random() * 3, '#6a5c52');
+      if (position) addTree(pick(deadTrees), position, 5 + random() * 3, '#6a5c52', craterFloor);
     }
   }
 
