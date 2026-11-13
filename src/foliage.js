@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { dressWithKit } from './megakit.js';
 
 // Painted plant cards scattered in 3D on the Blender terrain, drawn as instanced
 // meshes (one draw call per plant sprite). Everything here is in the model's own
@@ -58,9 +59,23 @@ const crater = { x: 0, y: 22, rx: 44, ry: 18 };
 // The wreck's spot in glTF (x, z); plants keep a window open toward it.
 const wreck = { x: 1.2, z: -11 };
 
-export const foliagePieces = [...Object.values(sheets).map(sheet => sheet.piece), treePiece];
+// Painted crater props (transparent PNGs) stood up as hazy cards on the crater floor.
+const craterProps = [
+  { piece: 'crashwood/props/scorched-cliff-slab', x: -17, z: -20, height: 6.5 },
+  { piece: 'crashwood/props/scorched-cliff-slab', x: 21, z: -22, height: 7.5, flip: true },
+  { piece: 'crashwood/props/rock-rubble', x: -5.5, z: -12.5, height: 2.4 },
+  { piece: 'crashwood/props/rock-rubble', x: 8.5, z: -13.5, height: 2.0, flip: true },
+  { piece: 'crashwood/props/burnt-log', x: -2.5, z: -8.5, height: 1.6 },
+  { piece: 'crashwood/props/burnt-log', x: 11, z: -16, height: 1.8, flip: true },
+  { piece: 'crashwood/props/charred-dead-tree', x: -11, z: -15, height: 8 },
+  { piece: 'crashwood/props/charred-dead-tree', x: 15, z: -10, height: 6.5, flip: true },
+];
 
-export function addFoliage(model, textures) {
+export const foliagePieces = [
+  ...Object.values(sheets).map(sheet => sheet.piece), treePiece, ...new Set(craterProps.map(prop => prop.piece)),
+];
+
+export function addFoliage(model, textures, kit = null) {
   const terrain = model.getObjectByName('Terrain_Export');
   if (!terrain) return { front: null, animate: () => {} };
   const craterWall = model.getObjectByName('CraterWall_Export');
@@ -121,9 +136,11 @@ export function addFoliage(model, textures) {
     }
   }
   if (craterWall) addRimTrees(model, craterWall, textures[treePiece], groundAt, random);
+  if (craterFloor) addCraterProps(model, craterFloor, textures, groundAt);
 
   for (const band of bands) {
-    for (let i = 0; i < band.count * stretch; i++) {
+    // With 3D MegaKit plants in the scene, the painted cards only fill the gaps.
+    for (let i = 0; i < band.count * stretch * (kit ? 0.45 : 1); i++) {
       const x = THREE.MathUtils.lerp(-half + 0.2, half - 0.2, random());
       const z = THREE.MathUtils.lerp(band.z[0], band.z[1], random());
       if (band.clearWreck && Math.abs(x - wreck.x) < 5) continue; // no bushes in the sightline
@@ -157,6 +174,8 @@ export function addFoliage(model, textures) {
     const [min, max] = plants[name][2];
     push(name, 'ground', { x, y: top + 0.04, z: face.z + 0.03, height: THREE.MathUtils.lerp(min, max, random()), turn: 0, flip: random() < 0.5 });
   }
+
+  if (kit) dressWithKit(model, kit, { terrain, craterWall, craterFloor, groundAt, toLocal, random, half, wreck, crater, time });
 
   const materials = {};
   const matrix = new THREE.Matrix4();
@@ -293,4 +312,23 @@ function seeded(seed) {
     state = (state * 1664525 + 1013904223) % 4294967296;
     return state / 4294967296;
   };
+}
+
+function addCraterProps(model, craterFloor, textures, groundAt) {
+  for (const { piece, x, z, height, flip } of craterProps) {
+    const map = textures[piece];
+    const y = groundAt(x, z, craterFloor);
+    if (!map || y === null) continue;
+    const width = height * map.image.width / map.image.height;
+    const geometry = new THREE.PlaneGeometry(width, height);
+    geometry.translate(0, height / 2, 0);
+    const card = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+      map, alphaTest: 0.35, transparent: true, side: THREE.DoubleSide, roughness: 1,
+    }));
+    card.position.set(x, y - 0.12 * height, z);
+    if (flip) card.scale.x = -1;
+    card.renderOrder = craterFloor.renderOrder;
+    card.receiveShadow = true;
+    model.add(card);
+  }
 }

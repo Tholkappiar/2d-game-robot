@@ -4,6 +4,7 @@ import './style.css';
 import { buildScene, makePlane, cameraDistance } from './scene-builder.js';
 import { loadLayouts } from './scene-layouts.js';
 import { foliagePieces } from './foliage.js';
+import { loadKit } from './megakit.js';
 
 const host = document.querySelector('#scene');
 const status = document.querySelector('#status');
@@ -29,6 +30,11 @@ async function start() {
   const requestedLayout = new URLSearchParams(location.search).get('level') ?? 'crashwood';
   const levelId = layouts.has(requestedLayout) ? requestedLayout : layouts.keys().next().value;
   const layout = layouts.get(levelId);
+  // ?x=1.5 starts the player at that spot (handy for checking one part of a long level).
+  const startX = Number(new URLSearchParams(location.search).get('x'));
+  if (layout && Number.isFinite(startX) && layout.platforms?.some(({ left, right }) => startX >= left && startX <= right)) {
+    layout.spawnX = startX;
+  }
   if (!layout) throw new Error(errors.join(' ') || 'Add a layout in src/layouts.');
   const crashwood = levelId === 'crashwood';
   for (const [id, level] of layouts) levelPicker.add(new Option(level.name, id));
@@ -104,7 +110,8 @@ async function start() {
     scene.fog = new THREE.Fog('#9fb7c4', cameraDistance + 1, cameraDistance + 24);
   }
 
-  const activeLayout = buildScene(layout, textures, model);
+  const kit = layout.model ? await loadKit(import.meta.env.BASE_URL) : null;
+  const activeLayout = buildScene(layout, textures, model, kit);
   depot.add(activeLayout.root);
   const descent = layout.platforms?.find(platform => platform.endY < platform.y);
   const controls = 'A/D move · Space jump';

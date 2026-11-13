@@ -1406,6 +1406,13 @@
       "bottom": -1.3
     },
     {
+      "piece": "crashwood/planet-ring",
+      "layer": "crash-planet",
+      "x": -0.55,
+      "width": 0.8,
+      "bottom": 0.55
+    },
+    {
       "piece": "crash-far-hills",
       "layer": "crash-hills",
       "x": 0,

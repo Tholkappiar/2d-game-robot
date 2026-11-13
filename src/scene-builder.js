@@ -42,10 +42,10 @@ function addModel(root, model, placement) {
   return model;
 }
 
-export function buildScene(layout, textures, model = null) {
+export function buildScene(layout, textures, model = null, kit = null) {
   const root = new THREE.Group();
   const model3d = model && addModel(root, model, layout.model);
-  const foliage = model3d ? addFoliage(model3d, textures) : null;
+  const foliage = model3d ? addFoliage(model3d, textures, kit) : null;
   if (foliage?.front) {
     foliage.front.scale.setScalar(layout.model.scale);
     root.add(foliage.front);
