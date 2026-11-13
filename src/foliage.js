@@ -66,6 +66,10 @@ export function addFoliage(model, textures) {
   const craterWall = model.getObjectByName('CraterWall_Export');
   const craterFloor = model.getObjectByName('CraterFloor_Export');
   model.updateMatrixWorld(true);
+  // Half the path length in meters, read from the terrain so a longer Blender path just works.
+  terrain.geometry.computeBoundingBox();
+  const half = terrain.geometry.boundingBox.max.x;
+  const stretch = half / 12; // plant counts were tuned on a 24 m path
   const toLocal = new THREE.Matrix4().copy(model.matrixWorld).invert();
   const raycaster = new THREE.Raycaster();
   const random = seeded(17);
@@ -94,8 +98,9 @@ export function addFoliage(model, textures) {
   // between them. Bases sit just under the walking line so only their tops show along
   // the bottom edge, and they pass in front of the player.
   const frontGroup = new THREE.Group();
-  for (let clump = 0; clump < 8; clump++) {
-    const centre = THREE.MathUtils.lerp(-11, 11, (clump + 0.2 + random() * 0.6) / 8);
+  const clumps = Math.round(8 * stretch);
+  for (let clump = 0; clump < clumps; clump++) {
+    const centre = THREE.MathUtils.lerp(-half + 1, half - 1, (clump + 0.2 + random() * 0.6) / clumps);
     const base = groundAt(centre, 0);
     if (base === null) continue;
     for (let i = 0, count = 2 + Math.floor(random() * 3); i < count; i++) {
@@ -118,8 +123,8 @@ export function addFoliage(model, textures) {
   if (craterWall) addRimTrees(model, craterWall, textures[treePiece], groundAt, random);
 
   for (const band of bands) {
-    for (let i = 0; i < band.count; i++) {
-      const x = THREE.MathUtils.lerp(-11.8, 11.8, random());
+    for (let i = 0; i < band.count * stretch; i++) {
+      const x = THREE.MathUtils.lerp(-half + 0.2, half - 0.2, random());
       const z = THREE.MathUtils.lerp(band.z[0], band.z[1], random());
       if (band.clearWreck && Math.abs(x - wreck.x) < 5) continue; // no bushes in the sightline
       plant(band.pick[Math.floor(random() * band.pick.length)], x, z);
@@ -141,8 +146,9 @@ export function addFoliage(model, textures) {
   });
 
   // Hanging moss draped over the front cliff lip: find the lip, hang from it.
-  for (let i = 0; i < 16; i++) {
-    const x = THREE.MathUtils.lerp(-11.5, 11.5, (i + random() * 0.8) / 16);
+  const strands = Math.round(16 * stretch);
+  for (let i = 0; i < strands; i++) {
+    const x = THREE.MathUtils.lerp(-half + 0.5, half - 0.5, (i + random() * 0.8) / strands);
     const top = groundAt(x, 1.75);
     if (top === null) continue;
     const face = cast(new THREE.Vector3(x, top - 0.12, 6), new THREE.Vector3(0, 0, -1));

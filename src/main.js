@@ -73,6 +73,7 @@ async function start() {
   depot.add(pollen);
 
   let model = null;
+  let followSun = () => {};
   if (layout.model) {
     // Every file shares one transform: they were exported from the same Blender scene.
     const gltfLoader = new GLTFLoader();
@@ -91,7 +92,12 @@ async function start() {
     sun.shadow.bias = -0.0004;
     sun.shadow.normalBias = 0.01;
     sun.shadow.radius = 3;
-    scene.add(sun, new THREE.HemisphereLight('#bcd3dc', '#56503a', 1.0));
+    scene.add(sun, sun.target, new THREE.HemisphereLight('#bcd3dc', '#56503a', 1.0));
+    followSun = cameraX => {
+      // Keep the shadow area centred on the camera so the whole long path gets shadows.
+      sun.position.set(cameraX + 2.4, 2.0, 0.5);
+      sun.target.position.set(cameraX, 0, 0);
+    };
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     // Blue haze with distance: the crater wall and rim trees fade toward the sky and hills.
@@ -138,6 +144,7 @@ async function start() {
     const cameraX = clampPan(pan);
     depotCamera.position.set(cameraX, lift, cameraDistance);
     pollen.position.x = cameraX;
+    followSun(cameraX);
     activeLayout.draw(cameraX, lift, motion.matches ? null : time);
     pollen.visible = !motion.matches;
     pollen.material.uniforms.time.value = time;
