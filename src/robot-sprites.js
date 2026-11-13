@@ -102,7 +102,7 @@ export function createRobotSprite() {
   texture.generateMipmaps = false;
   texture.minFilter = THREE.LinearFilter;
   const material = new THREE.MeshBasicMaterial({
-    map: texture, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide,
+    map: texture, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide, fog: false,
   });
   const width = cellWidth * pixelSize;
   const height = width * cellHeight / cellWidth;

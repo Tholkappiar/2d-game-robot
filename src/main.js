@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import './style.css';
 import { buildScene, makePlane } from './scene-builder.js';
 import { loadLayouts } from './scene-layouts.js';
+import { foliagePieces } from './foliage.js';
 
 const host = document.querySelector('#scene');
 const status = document.querySelector('#status');
@@ -49,6 +50,7 @@ async function start() {
   const referencePiece = crashwood ? layout.placements.find(placement => placement.layer === 'crash-basin').piece : 'concept';
   const names = new Set([backgroundPiece, referencePiece]);
   for (const { piece } of layout.placements) names.add(piece);
+  if (layout.model) for (const piece of foliagePieces) names.add(piece);
   const textures = Object.fromEntries(await Promise.all(Array.from(names, async name => {
     const texture = await loader.loadAsync(`${import.meta.env.BASE_URL}assets/${name}.png`)
       .catch(() => { throw new Error(`Could not load artwork "${name}.png".`); });
@@ -72,9 +74,19 @@ async function start() {
       .catch(() => { throw new Error(`Could not load model "${layout.model.file}".`); });
     model = gltf.scene;
     // Warm sun from the upper right plus soft sky fill, matching the Blender preview.
-    const sun = new THREE.DirectionalLight('#ffe6c4', 2.6);
-    sun.position.set(1.2, 2.0, 1.6);
-    scene.add(sun, new THREE.HemisphereLight('#c4d8e6', '#4a4636', 1.1));
+    const sun = new THREE.DirectionalLight('#ffe2b8', 3.0);
+    sun.position.set(1.4, 2.4, 1.2);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 3, bottom: -3, near: 0.1, far: 10 });
+    sun.shadow.bias = -0.0004;
+    sun.shadow.normalBias = 0.01;
+    sun.shadow.radius = 3;
+    scene.add(sun, new THREE.HemisphereLight('#bcd3dc', '#56503a', 1.0));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // Haze toward the forest colour so the back of the 3D ground melts into the painting.
+    scene.fog = new THREE.Fog('#7f9c97', 2.3, 5.2);
   }
 
   const activeLayout = buildScene(layout, textures, model);

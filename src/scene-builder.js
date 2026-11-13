@@ -3,10 +3,12 @@ import { createPlayer } from './player.js';
 import { layers, pieces } from './scene-catalog.js';
 import { attachOakWind } from './oak-wind.js';
 import { surfaceHeight } from './platforms.js';
+import { addFoliage } from './foliage.js';
 
 export function makePlane(map, width, height, order, transparent = false) {
+  // fog: false — scene fog is only for the 3D ground; painted layers carry their own haze.
   const material = new THREE.MeshBasicMaterial({
-    map, transparent, toneMapped: false, depthTest: false, depthWrite: false,
+    map, transparent, toneMapped: false, depthTest: false, depthWrite: false, fog: false,
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material);
   mesh.renderOrder = order;
@@ -21,11 +23,15 @@ function addModel(root, model, placement) {
   model.traverse(node => {
     if (!node.isMesh) return;
     node.renderOrder = layers.ground.order;
+    node.castShadow = true;
+    node.receiveShadow = true;
     const materials = Array.isArray(node.material) ? node.material : [node.material];
     for (const material of materials) {
       material.transparent = true;
       material.depthTest = true;
       material.depthWrite = true;
+      // Warm the neutral Blender greys toward the painted forest palette.
+      material.color.set(node.name.startsWith('Terrain') ? '#f2ead2' : '#e8e2cf');
     }
   });
   root.add(model);
@@ -35,6 +41,7 @@ function addModel(root, model, placement) {
 export function buildScene(layout, textures, model = null) {
   const root = new THREE.Group();
   const model3d = model && addModel(root, model, layout.model);
+  const animateFoliage = model3d ? addFoliage(model3d, textures) : null;
   const strips = [];
   const props = [];
   const animateOaks = [];
@@ -165,6 +172,7 @@ export function buildScene(layout, textures, model = null) {
     draw(pan, lift, animationTime = null) {
       player.draw(pan);
       if (model3d) model3d.position.set(layout.model.x - pan, layout.model.y, 0);
+      animateFoliage?.(animationTime);
       for (const animate of animateOaks) animate(animationTime);
       for (const { mesh, x, y, speed, width } of strips) {
         mesh.position.y = lift + (y - lift) / speed;

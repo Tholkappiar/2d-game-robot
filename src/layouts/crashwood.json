@@ -606,16 +606,16 @@
     {
       "piece": "lana-video-foreground",
       "layer": "crash-foreground",
-      "x": -2.6,
+      "x": -0.58,
       "width": 8.1,
       "bottom": -1.31
     },
     {
       "piece": "lana-video-foreground",
       "layer": "crash-foreground",
-      "x": 4.6,
+      "x": 7.5,
       "width": 8.1,
-      "bottom": -1.4,
+      "bottom": -1.36,
       "flip": true
     }
   ],
