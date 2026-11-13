@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import './style.css';
-import { buildScene, makePlane } from './scene-builder.js';
+import { buildScene, makePlane, cameraDistance } from './scene-builder.js';
 import { loadLayouts } from './scene-layouts.js';
 import { foliagePieces } from './foliage.js';
 
@@ -17,8 +17,10 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color('#111b18');
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
 camera.position.z = 2;
-const depotCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 32);
-depotCamera.position.z = 2;
+// A long lens from far back (like a film camera on a crane): the world stays put and only
+// the camera moves, with little perspective stretch on the ground.
+const depotCamera = new THREE.PerspectiveCamera(35, 1, 0.2, 160);
+depotCamera.position.z = cameraDistance;
 const frameAspect = 1672 / 941;
 const frameScale = 1.065;
 
@@ -93,7 +95,7 @@ async function start() {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     // Blue haze with distance: the crater wall and rim trees fade toward the sky and hills.
-    scene.fog = new THREE.Fog('#9fb7c4', 3.0, 26);
+    scene.fog = new THREE.Fog('#9fb7c4', cameraDistance + 1, cameraDistance + 24);
   }
 
   const activeLayout = buildScene(layout, textures, model);
@@ -133,8 +135,10 @@ async function start() {
       renderer.render(scene, camera);
       return;
     }
-    depotCamera.position.y = lift;
-    activeLayout.draw(clampPan(pan), lift, motion.matches ? null : time);
+    const cameraX = clampPan(pan);
+    depotCamera.position.set(cameraX, lift, cameraDistance);
+    pollen.position.x = cameraX;
+    activeLayout.draw(cameraX, lift, motion.matches ? null : time);
     pollen.visible = !motion.matches;
     pollen.material.uniforms.time.value = time;
     pollen.material.uniforms.pixelRatio.value = renderer.getPixelRatio();
@@ -157,7 +161,8 @@ async function start() {
     viewWidth = 2 * aspect / frameScale;
     const { bounds } = activeLayout;
     if (bounds) viewWidth = Math.min(viewWidth, bounds.right - bounds.left);
-    depotCamera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(viewWidth / (4 * aspect)));
+    // viewWidth is the visible width at the walking plane (z = 0).
+    depotCamera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(viewWidth / (2 * aspect * cameraDistance)));
     depotCamera.updateProjectionMatrix();
     activeLayout.setViewWidth(viewWidth);
     renderer.setSize(width, height);

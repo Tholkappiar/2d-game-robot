@@ -5,6 +5,10 @@ import { attachOakWind } from './oak-wind.js';
 import { surfaceHeight } from './platforms.js';
 import { addFoliage } from './foliage.js';
 
+// Camera distance from the walking plane. Painted layers sit at the depth where a real
+// camera move gives them their parallax speed: distance = cameraDistance / speed.
+export const cameraDistance = 3;
+
 export function makePlane(map, width, height, order, transparent = false) {
   // fog: false — scene fog is only for the 3D ground; painted layers carry their own haze.
   const material = new THREE.MeshBasicMaterial({
@@ -126,7 +130,7 @@ export function buildScene(layout, textures, model = null) {
       // Keep the same apparent size at each parallax depth.
       mesh.scale.setScalar(1 / speed);
       if (flip) mesh.scale.x *= -1;
-      mesh.position.z = 2 * (1 - 1 / speed);
+      mesh.position.z = cameraDistance * (1 - 1 / speed);
       root.add(mesh);
       return mesh;
     }
@@ -187,14 +191,15 @@ export function buildScene(layout, textures, model = null) {
       }
     },
     draw(pan, lift, animationTime = null) {
-      player.draw(pan);
-      if (model3d) model3d.position.set(layout.model.x - pan, layout.model.y, 0);
+      player.draw(0); // world position; the camera does the following
+      if (model3d) model3d.position.set(layout.model.x, layout.model.y, 0);
       foliage?.animate(animationTime);
-      // Foreground plants follow the camera height so they always fill the bottom of the frame.
-      foliage?.front?.position.set(layout.model.x - pan, lift - 0.6, 0);
+      foliage?.front?.position.set(layout.model.x, layout.model.y, 0);
       for (const animate of animateOaks) animate(animationTime);
+      // Painted layers stand still at their depth; only the tiling strips recentre on the camera.
       for (const { mesh, x, y, speed, width } of strips) {
-        mesh.position.y = lift + (y - lift) / speed;
+        mesh.position.x = pan;
+        mesh.position.y = y / speed;
         const map = mesh.material.map;
         // Add tiles around the center so resizing keeps the pattern in place.
         const leftShift = (1 - map.repeat.x) / 2;
@@ -207,8 +212,8 @@ export function buildScene(layout, textures, model = null) {
         for (const [slot, mesh] of copies.entries()) {
           const index = nearest + slot - radius;
           const offset = index === 0 ? 0 : Math.sin(index * 12.9898) * variation;
-          mesh.position.x = (x + index * (spacing ?? 0) + offset - travel) / speed;
-          mesh.position.y = lift + (y - lift) / speed;
+          mesh.position.x = (x + index * (spacing ?? 0) + offset) / speed;
+          mesh.position.y = y / speed;
         }
       }
     },

@@ -528,15 +528,15 @@
       "piece": "crash-foreground-v2",
       "layer": "crash-foreground",
       "x": -2.0,
-      "width": 3.7,
-      "bottom": -1.25
+      "width": 3.9,
+      "bottom": -1.05
     },
     {
       "piece": "crash-foreground-v2",
       "layer": "crash-foreground",
       "x": 2.9,
-      "width": 3.7,
-      "bottom": -1.25,
+      "width": 3.9,
+      "bottom": -1.05,
       "flip": true
     }
   ],

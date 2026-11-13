@@ -42,10 +42,10 @@ const hanging = new Set(['hangA', 'hangB', 'hangC']);
 
 // Bands across the path depth: glTF z range, count, and the plants to pick from.
 const bands = [
-  { z: [-3.0, -1.7], count: 46, pick: ['bushFlower', 'bushBerry', 'bushFern', 'bushBlue', 'fernBig', 'seedTall', 'grassTall'] },
-  { z: [-1.6, -0.6], count: 52, pick: ['tuft', 'seedShort', 'grassLeafy', 'fern', 'fernSmall', 'leaf', 'clover', 'mossA', 'mossB'] },
-  { z: [-0.55, -0.42], count: 18, pick: ['tuftLow', 'clover', 'mossC', 'fernSmall'] },
-  { z: [1.25, 1.75], count: 30, pick: ['grassTall', 'fernBig', 'leafBig', 'tuft', 'fern', 'seedShort'] },
+  { z: [-3.0, -1.7], count: 24, pick: ['bushFlower', 'bushBerry', 'bushFern', 'bushBlue', 'fernBig', 'seedTall', 'grassTall'], clearWreck: true },
+  { z: [-1.6, -0.6], count: 30, pick: ['tuft', 'seedShort', 'grassLeafy', 'fern', 'fernSmall', 'leaf', 'clover', 'mossA', 'mossB'] },
+  { z: [-0.55, -0.42], count: 12, pick: ['tuftLow', 'clover', 'mossC', 'fernSmall'] },
+  { z: [1.25, 1.75], count: 20, pick: ['grassTall', 'fernBig', 'leafBig', 'tuft', 'fern', 'seedShort'] },
 ];
 
 // Crater floor plants and the dark band of plants right in front of the camera.
@@ -55,6 +55,8 @@ const treePiece = 'crash-woods-v2';
 
 // The crater bowl's ellipse in Blender (x, y) — matches the Blender scene.
 const crater = { x: 0, y: 22, rx: 44, ry: 18 };
+// The wreck's spot in glTF (x, z); plants keep a window open toward it.
+const wreck = { x: 1.2, z: -11 };
 
 export const foliagePieces = [...Object.values(sheets).map(sheet => sheet.piece), treePiece];
 
@@ -88,24 +90,28 @@ export function addFoliage(model, textures) {
     push(name, 'ground', { x, y: y - 0.05 * height, z, height, turn: (random() - 0.5) * 0.5, flip: random() < 0.5 });
   }
 
-  // Dark, out-of-the-light plants just in front of the camera. They live in their own
-  // group that rides with the camera height (see scene-builder), with bases below the
-  // frame, so they always fill the bottom edge and pass in front of the player.
+  // Dark, out-of-the-light plants close to the camera, in a few clumps with open gaps
+  // between them. Bases sit just under the walking line so only their tops show along
+  // the bottom edge, and they pass in front of the player.
   const frontGroup = new THREE.Group();
-  for (let i = 0; i < 64; i++) {
-    const name = frontPick[Math.floor(random() * frontPick.length)];
-    const height = THREE.MathUtils.lerp(0.9, 2.2, random()) * (name.startsWith('bush') ? 0.85 : 1);
-    push(name, 'front', {
-      x: THREE.MathUtils.lerp(-16, 16, random()), y: -random() * 0.3, z: THREE.MathUtils.lerp(3.3, 5.2, random()),
-      height, turn: (random() - 0.5) * 0.4, flip: random() < 0.5,
-    });
+  for (let clump = 0; clump < 8; clump++) {
+    const centre = THREE.MathUtils.lerp(-11, 11, (clump + 0.2 + random() * 0.6) / 8);
+    const base = groundAt(centre, 0);
+    if (base === null) continue;
+    for (let i = 0, count = 2 + Math.floor(random() * 3); i < count; i++) {
+      const name = frontPick[Math.floor(random() * frontPick.length)];
+      push(name, 'front', {
+        x: centre + (random() - 0.5) * 2.2, y: base - 1.3 - random() * 0.3, z: THREE.MathUtils.lerp(5, 7, random()) /* halfway to the camera (cameraDistance 3 / scale 0.25 = 12) */,
+        height: THREE.MathUtils.lerp(1.2, 2.3, random()), turn: (random() - 0.5) * 0.4, flip: random() < 0.5,
+      });
+    }
   }
 
   if (craterFloor) {
-    for (let i = 0; i < 110; i++) {
+    for (let i = 0; i < 60; i++) {
       const x = THREE.MathUtils.lerp(-34, 34, random());
       const z = -THREE.MathUtils.lerp(6, 32, random());
-      if (Math.hypot((x - 1.5) / 1.3, (z + 11) / 0.7) < 4.5) continue; // keep the wreck readable
+      if (Math.hypot((x - wreck.x) / 1.6, z - wreck.z) < 6) continue; // keep the wreck readable
       plant(craterPick[Math.floor(random() * craterPick.length)], x, z, 1.4, craterFloor);
     }
   }
@@ -115,6 +121,7 @@ export function addFoliage(model, textures) {
     for (let i = 0; i < band.count; i++) {
       const x = THREE.MathUtils.lerp(-11.8, 11.8, random());
       const z = THREE.MathUtils.lerp(band.z[0], band.z[1], random());
+      if (band.clearWreck && Math.abs(x - wreck.x) < 5) continue; // no bushes in the sightline
       plant(band.pick[Math.floor(random() * band.pick.length)], x, z);
     }
   }
