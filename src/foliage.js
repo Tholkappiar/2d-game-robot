@@ -57,7 +57,7 @@ const treePiece = 'crash-woods-v2';
 // The crater bowl's ellipse in Blender (x, y) — matches the Blender scene.
 const crater = { x: 0, y: 22, rx: 44, ry: 18 };
 // The wreck's spot in glTF (x, z); plants keep a window open toward it.
-const wreck = { x: 1.2, z: -11 };
+const wreck = { x: 0, z: -20 }; // the Tripo wreck, near the crater centre
 
 // Painted crater props (transparent PNGs) stood up as hazy cards on the crater floor.
 const craterProps = [

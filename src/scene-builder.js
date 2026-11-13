@@ -31,7 +31,7 @@ function addModel(root, model, placement) {
     node.renderOrder = layers.ground.order;
     // The big ground meshes only receive shadows; drawing them into the shadow map too
     // doubled their cost for almost no visible difference.
-    node.castShadow = !/^(Terrain|Crater)/.test(node.name);
+    node.castShadow = !/^(Terrain|Crater|OuterLand)/.test(node.name);
     node.receiveShadow = true;
     const materials = Array.isArray(node.material) ? node.material : [node.material];
     for (const material of materials) {

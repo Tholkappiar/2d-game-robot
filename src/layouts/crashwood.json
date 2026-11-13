@@ -1477,39 +1477,39 @@
     {
       "piece": "crash-foreground-v2",
       "layer": "crash-foreground",
-      "x": -14.55,
-      "width": 7.5,
-      "bottom": -3.0
+      "x": -17.848,
+      "width": 9.2,
+      "bottom": -3.4
     },
     {
       "piece": "crash-foreground-v2",
       "layer": "crash-foreground",
-      "x": -7.275,
-      "width": 7.5,
-      "bottom": -3.0,
+      "x": -8.924,
+      "width": 9.2,
+      "bottom": -3.4,
       "flip": true
     },
     {
       "piece": "crash-foreground-v2",
       "layer": "crash-foreground",
       "x": 0.0,
-      "width": 7.5,
-      "bottom": -3.0
+      "width": 9.2,
+      "bottom": -3.4
     },
     {
       "piece": "crash-foreground-v2",
       "layer": "crash-foreground",
-      "x": 7.275,
-      "width": 7.5,
-      "bottom": -3.0,
+      "x": 8.924,
+      "width": 9.2,
+      "bottom": -3.4,
       "flip": true
     },
     {
       "piece": "crash-foreground-v2",
       "layer": "crash-foreground",
-      "x": 14.55,
-      "width": 7.5,
-      "bottom": -3.0
+      "x": 17.848,
+      "width": 9.2,
+      "bottom": -3.4
     }
   ]
 }
