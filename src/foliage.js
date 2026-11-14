@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { dressWithKit } from './megakit.js';
+import { addGrass } from './grass.js';
 
 // Painted plant cards scattered in 3D on the Blender terrain, drawn as instanced
 // meshes (one draw call per plant sprite). Everything here is in the model's own
@@ -90,6 +91,7 @@ export function addFoliage(model, textures, kitComing = true) {
   const raycaster = new THREE.Raycaster();
   const random = seeded(17);
   const time = { value: 0 };
+  const grassPlayer = { value: new THREE.Vector4() }; // robot x, z and how hard it parts the grass
   const sprites = cutSheets(textures);
   // Instanced groups keyed by plant name and look ('ground' = lit, 'front' = dark foreground).
   const placed = {};
@@ -211,9 +213,18 @@ export function addFoliage(model, textures, kitComing = true) {
 
   return {
     front: frontGroup,
-    animate: animationTime => { time.value = animationTime ?? 0; },
+    animate: (animationTime, robot) => {
+      time.value = animationTime ?? 0;
+      if (!robot) return;
+      grassPlayer.value.x = robot.x;
+      grassPlayer.value.z += ((robot.grounded ? 0.9 : 0) - grassPlayer.value.z) * 0.15; // ease the push in and out
+    },
     // MegaKit arrives after the first frame; its own seed keeps placement the same every load.
-    dress: kit => dressWithKit(model, kit, { terrain, craterWall, craterFloor, outerLand, groundAt, toLocal, random: seeded(29), half, wreck, crater, time }),
+    dress: kit => {
+      const obstacles = []; // rocks and trunks the grass should not grow through
+      dressWithKit(model, kit, { terrain, craterWall, craterFloor, outerLand, groundAt, toLocal, random: seeded(29), half, wreck, crater, time, obstacles });
+      addGrass(model, { terrain, craterFloor, craterWall, half, wreck, time, player: grassPlayer, obstacles });
+    },
   };
 }
 

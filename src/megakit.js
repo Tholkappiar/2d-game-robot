@@ -16,7 +16,11 @@ const shrubs = ['Bush_Common', 'Bush_Common_Flowers', 'Fern_1'];
 const grasses = ['Grass_Common_Short', 'Grass_Common_Tall', 'Grass_Common_Short', 'Grass_Wispy_Short',
   'Clover_1', 'Flower_3_Group'];
 
-export const kitModels = [...trees, ...deadTrees, ...rocks, ...pebbles, ...shrubs, ...grasses, 'Mushroom_Common'];
+// Flower clumps and flowering bushes scattered across the crater.
+// (Flower_3_Group is the light one, ~750 triangles; the bush is ~1,400.)
+const craterFlowers = ['Flower_3_Group', 'Flower_3_Group', 'Flower_3_Group', 'Bush_Common_Flowers'];
+
+export const kitModels = [...new Set([...trees, ...deadTrees, ...rocks, ...pebbles, ...shrubs, ...grasses, ...craterFlowers, 'Mushroom_Common'])];
 
 export async function loadKit(baseUrl) {
   const loader = new GLTFLoader();
@@ -82,7 +86,9 @@ function prepare(kit, renderOrder, time) {
 }
 
 // Collect placements per model, then build one InstancedMesh per sub-mesh.
-// Only big things cast shadows; grass, flowers and pebbles would double the GPU work for little gain.
+// Only big things near the path cast shadows; grass, flowers and pebbles would double the GPU work
+// for little gain. Everything behind the path (the crater, the rims, the hills) is past the shadow
+// area, so it neither casts nor receives: that saves a whole extra pass over ~1 M tree triangles.
 const castsShadow = name => rocks.includes(name) || name.startsWith('Bush') || trees.includes(name);
 const chunkSize = 8; // meters: one instanced batch per model per 8 m of path
 
@@ -95,19 +101,20 @@ function makeBatcher(kit, parent, renderOrder) {
   return {
     add(name, position, scale, turn = 0, tilt = null) {
       quaternion.setFromEuler(new THREE.Euler(tilt?.x ?? 0, turn, tilt?.z ?? 0, 'YXZ'));
-      const key = `${name}|${Math.floor(position.x / chunkSize)}`;
+      const far = position.z < -4; // behind the path
+      const key = `${name}|${Math.floor(position.x / chunkSize)}|${far ? 'far' : 'near'}`;
       (lists[key] ??= []).push(new THREE.Matrix4().compose(position, quaternion.clone(), new THREE.Vector3(scale, scale, scale)));
     },
     build() {
       for (const [key, placements] of Object.entries(lists)) {
-        const name = key.split('|')[0];
+        const [name, , depth] = key.split('|');
         kit[name].scene.traverse(node => {
           if (!node.isMesh) return;
           const mesh = new THREE.InstancedMesh(node.geometry, node.material, placements.length);
           placements.forEach((placement, index) => mesh.setMatrixAt(index, matrix.multiplyMatrices(placement, node.matrixWorld)));
           mesh.computeBoundingSphere();
-          mesh.castShadow = castsShadow(name);
-          mesh.receiveShadow = true;
+          mesh.castShadow = depth === 'near' && castsShadow(name);
+          mesh.receiveShadow = depth === 'near';
           mesh.renderOrder = renderOrder;
           parent.add(mesh);
         });
@@ -116,7 +123,7 @@ function makeBatcher(kit, parent, renderOrder) {
   };
 }
 
-export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, outerLand, groundAt, toLocal, random, half, wreck, crater, time }) {
+export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, outerLand, groundAt, toLocal, random, half, wreck, crater, time, obstacles = [] }) {
   const order = terrain.renderOrder;
   prepare(kit, order, time);
   const batch = makeBatcher(kit, model, order);
@@ -159,6 +166,7 @@ export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, out
     const ground = settle(centre.x, centre.z, halfX, halfZ) ?? box.min.y;
     // Base on the lowest ground under it, sunk in by a fifth of its height so it looks embedded.
     const sink = 0.2 * template.size.y * scale;
+    if (footprint >= 0.6) obstacles.push({ x: centre.x, z: centre.z, r: 0.42 * (halfX + halfZ) });
     batch.add(name, new THREE.Vector3(centre.x, ground - template.box.min.y * scale - sink, centre.z), scale, random() * Math.PI * 2);
   }
 
@@ -172,6 +180,7 @@ export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, out
     tree.position.copy(position);
     tree.position.y = (settle(position.x, position.z, 0.6, 0.6, groundTarget) ?? position.y) - 0.2 * scale;
     tree.rotation.y = random() * Math.PI * 2;
+    obstacles.push({ x: position.x, z: position.z, r: 0.35 });
     if (tint) tree.traverse(node => { if (node.isMesh) { node.material = node.material.clone(); node.material.color.set(tint); } });
     model.add(tree);
   };
@@ -191,23 +200,23 @@ export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, out
     batch.add(name, new THREE.Vector3(x, ground - 0.2 * scale, z), scale, random() * Math.PI * 2);
   };
   if (craterWall) {
-    for (let i = 0; i < 120; i++) {
+    for (let i = 0; i < 75; i++) {
       const degrees = THREE.MathUtils.lerp(-40, 220, random());
       if (Math.abs(degrees - 90) < 40) continue;
       const angle = THREE.MathUtils.degToRad(degrees);
       const reach = 3 + random() * 10;
       const x = crater.x + (crater.rx + reach) * Math.cos(angle);
       const z = -(crater.y + (crater.ry + reach) * Math.sin(angle));
-      plantFar(pick(trees), x, z, 5 + random() * 4, craterWall);
+      plantFar(pick(trees), x, z, 6 + random() * 4.5, craterWall);
     }
   }
   if (outerLand) {
-    for (let i = 0; i < 220; i++) {
+    for (let i = 0; i < 120; i++) {
       const x = (random() < 0.5 ? -1 : 1) * THREE.MathUtils.lerp(34, 110, random());
       const z = -THREE.MathUtils.lerp(20, 105, random());
       const ground = groundAt(x, z, outerLand);
       if (ground === null || ground < 2.5) continue; // only on the raised side hills
-      plantFar(pick(farTrees), x, z, 6 + random() * 5, outerLand);
+      plantFar(pick(farTrees), x, z, 7.5 + random() * 5.5, outerLand);
     }
   }
   // Burnt dead trees standing in the crater.
@@ -238,6 +247,22 @@ export function dressWithKit(model, kit, { terrain, craterWall, craterFloor, out
     const name = pick(grasses);
     if (position) batch.add(name, position, (0.25 + random() * 0.3) / kit[name].size.y, random() * Math.PI * 2);
   }
+  // Flower clumps and flowering bushes all around the crater: floor and lower slopes, in drifts.
+  if (craterFloor) {
+    for (let i = 0; i < 170; i++) {
+      const angle = random() * Math.PI * 2;
+      const reach = Math.sqrt(random()) * 1.05; // a little past the floor's edge, onto the slopes
+      const x = crater.x + crater.rx * reach * Math.cos(angle);
+      const z = -(crater.y + crater.ry * reach * Math.sin(angle));
+      if (z > -4.5 || nearWreck(x, z, 4)) continue;
+      const position = at(x, z, craterFloor) ?? at(x, z, craterWall);
+      if (!position) continue;
+      const name = pick(craterFlowers);
+      const height = name.startsWith('Bush') ? 0.6 + random() * 0.4 : 0.3 + random() * 0.25;
+      batch.add(name, position, height / kit[name].size.y, random() * Math.PI * 2);
+    }
+  }
+
   // Pebbles scattered on the verges and crater floor.
   for (let i = 0; i < 90 * stretch; i++) {
     const onFloor = craterFloor && random() < 0.4;

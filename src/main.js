@@ -53,8 +53,41 @@ async function start() {
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  // Resolution governor: start a bit under full Retina sharpness, render fewer pixels whenever the
+  // frame rate drops, and creep back up when there is room. Keeps a steady 60 fps on any screen.
+  const maxPixelRatio = Math.min(window.devicePixelRatio, 2);
+  const minPixelRatio = Math.min(maxPixelRatio, 0.75);
+  let pixelRatio = Math.min(maxPixelRatio, 1.25);
+  let pixelCeiling = Infinity; // the lowest ratio that has been too slow; never climb back to it
+  const governor = { time: 0, frames: 0, good: 0, settle: true };
+  renderer.setPixelRatio(pixelRatio);
+  function setRatio(value) {
+    pixelRatio = value;
+    renderer.setPixelRatio(value);
+    governor.good = 0;
+    governor.settle = true; // the window after a change includes the resize hitch: don't judge it
+  }
+  function govern(seconds) {
+    if (document.hidden || seconds > 0.5) return; // ignore tab switches and loading stalls
+    governor.time += seconds;
+    governor.frames++;
+    if (governor.time < 2) return;
+    const fps = governor.frames / governor.time;
+    governor.time = governor.frames = 0;
+    if (governor.settle) {
+      governor.settle = false;
+      return;
+    }
+    if (fps < 56 && pixelRatio > minPixelRatio) {
+      pixelCeiling = Math.min(pixelCeiling, pixelRatio);
+      setRatio(Math.max(minPixelRatio, pixelRatio - (fps < 42 ? 0.2 : 0.1)));
+    } else if (fps > 58.5 && ++governor.good >= 5 && pixelRatio + 0.1 < pixelCeiling - 0.01 && pixelRatio < maxPixelRatio) {
+      setRatio(Math.min(maxPixelRatio, pixelRatio + 0.1));
+    }
+  }
   host.appendChild(renderer.domElement);
+  // ?stats shows frame rate, draw calls and what each part of the scene costs.
+  if (new URLSearchParams(location.search).has('stats')) import('./stats.js').then(({ attachStats }) => attachStats(renderer, scene));
   const loader = new THREE.TextureLoader();
   const backgroundPiece = layout.placements.find(placement => placement.layer === 'background')?.piece
     ?? 'background-clear';
@@ -255,6 +288,7 @@ async function start() {
 
   let previousTime;
   renderer.setAnimationLoop(now => {
+    if (previousTime !== undefined) govern((now - previousTime) / 1000);
     const delta = previousTime === undefined ? 0 : Math.min((now - previousTime) / 1000, 0.05);
     previousTime = now;
     if (activeView !== 'depot') return;

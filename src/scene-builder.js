@@ -209,7 +209,7 @@ export function buildScene(layout, textures, model = null) {
     draw(pan, lift, animationTime = null) {
       player.draw(0); // world position; the camera does the following
       if (model3d) model3d.position.set(layout.model.x, layout.model.y, 0);
-      foliage?.animate(animationTime);
+      foliage?.animate(animationTime, model3d && { x: (player.x - layout.model.x) / layout.model.scale, grounded: player.grounded });
       foliage?.front?.position.set(layout.model.x, layout.model.y, 0);
       for (const animate of animateOaks) animate(animationTime);
       // Painted layers stand still at their depth; only the tiling strips recentre on the camera.
