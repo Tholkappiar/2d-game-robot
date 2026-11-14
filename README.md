@@ -1,5 +1,38 @@
 # Crashwood and Overgrown Depot
 
+## Quick start
+
+Needs [Node.js](https://nodejs.org) 18 or newer.
+
+```sh
+git clone <this repo>
+cd 2d-game-robot
+npm install
+npm run dev
+```
+
+Open http://127.0.0.1:5173. A/D moves, Space jumps.
+
+Useful URL options:
+
+| URL | What it does |
+| --- | --- |
+| `/?stats` | Performance panel: frame rate, resolution, draw calls, triangles, and what each part of the scene costs. Untick a row to hide that part and see how the frame rate changes. |
+| `/?x=0` | Start the robot at that spot on the path (handy for checking one part of the level). |
+| `/?level=depot` | Open the Overgrown Depot scene. |
+
+`npm run build` packages the game into `dist/`, and `npm run preview` serves that build.
+
+### Where things live
+
+- `src/grass.js`: the 3D grass, flowers and green ground carpet, with wind. Density and colours are at the top of the file.
+- `src/megakit.js`: trees, rocks, bushes and crater flowers from the Quaternius Stylized Nature MegaKit.
+- `src/main.js`: renderer, lighting, camera, and the resolution governor that keeps 60 fps by rendering fewer pixels when the GPU is busy.
+- `src/stats.js`: the `?stats` panel.
+- `blender/crashwood-path.blend`: the source Blender scene for the path, crater and wreck. The game loads its exports from `public/assets/models/`.
+
+## Playing
+
 Run `npm run dev` and open the URL Vite prints. Crashwood starts on a woodland path leading down into the impact basin. Use A/D to move and Space to jump. Follow the rocky path uphill and through the woodland to finish.
 
 Use the **Scene** menu to switch between Crashwood and Overgrown Depot. Each scene starts from its beginning when selected. You can also open `/?level=depot` directly. In Overgrown Depot, follow the path to the spillway, press Space near the channel edge to jump, then press Space again after the robot grabs the stone lip. Follow the forest path to the trail sign.
